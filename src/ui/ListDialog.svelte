@@ -20,20 +20,33 @@
   let opener: HTMLElement | null = null;
   let pressedOnBackdrop = false;
 
-  export async function open(trigger?: HTMLElement) {
+  /** Open the dialog; `paste` opens it straight to the paste box. */
+  export async function open(trigger?: HTMLElement, opts: { paste?: boolean } = {}) {
     if (!dialog || dialog.open) return;
     opener = trigger ?? (document.activeElement as HTMLElement | null);
     document.documentElement.classList.add('dialog-open');
     if (body) body.scrollTop = 0;
     dialog.showModal();
-    // With nothing loaded, start on the drop zone rather than the close button.
-    if (!dataset) {
+    if (opts.paste) {
+      await panel?.openPaste();
+    } else if (!dataset) {
+      // With nothing loaded, start on the drop zone rather than the close button.
       await tick();
       body?.querySelector<HTMLButtonElement>('.drop')?.focus();
     }
   }
 
-  /** Drop the list, cancelling any load still in flight. */
+  /** Load a file dropped outside the dialog. Resolves with the error message, or '' on success. */
+  export function loadFile(file: File): Promise<string> {
+    return panel ? panel.loadFile(file) : Promise.resolve('');
+  }
+
+  /** Switch to another sheet of the loaded workbook. */
+  export function chooseSheet(name: string) {
+    panel?.chooseSheet(name);
+  }
+
+  /** Drop the spreadsheet, cancelling any load still in flight. */
   export function remove() {
     if (panel) panel.remove();
     else onchange(null);

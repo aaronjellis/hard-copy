@@ -9,3 +9,10 @@ describe('pdf preview module', () => {
     expect(mod.isRenderCancelled(new Error('boom'))).toBe(false);
   });
 });
+
+describe('openPdf', () => {
+  it('is exported for page-by-page rendering', async () => {
+    const mod = await import('../../src/lib/pdf/preview');
+    expect(typeof mod.openPdf).toBe('function');
+  });
+});

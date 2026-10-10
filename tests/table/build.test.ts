@@ -140,6 +140,26 @@ describe('buildTablePdf: pages', () => {
     expect(pdf.tooSmall).toBe(false);
   });
 
+  it('reports the band and row range of every page, and the band count, for the preview caption', async () => {
+    const rows = Array.from({ length: 150 }, (_, i) => [`Person ${i}`, String(i * 7), 'Some note text']);
+    const pdf = await buildTablePdf(input(undefined, rows), noFonts);
+    expect(pdf.bandCount).toBe(1);
+    expect(pdf.noRoom).toBe(false);
+    expect(pdf.pages).toHaveLength(pdf.pageCount);
+    expect(pdf.pages[0]).toEqual({ band: 0, rowStart: 0, rowEnd: pdf.pages[1].rowStart });
+    expect(pdf.pages[pdf.pages.length - 1].rowEnd).toBe(150);
+  });
+
+  it('reports noRoom when the margins leave no printable width', async () => {
+    const pdf = await buildTablePdf(input((s) => {
+      s.page.margins = { top: 1, right: 3, bottom: 1, left: 3 };
+      s.page.paper = 'custom';
+      s.page.customWidthIn = 6;
+    }), noFonts);
+    expect(pdf.noRoom).toBe(true);
+    expect(pdf.pageCount).toBe(1);
+  });
+
   it('draws the title and "Page 1 of N" in the header and footer bands', async () => {
     const rows = Array.from({ length: 150 }, (_, i) => [`Person ${i}`, String(i), 'x']);
     const { pdf, doc } = await build(input((s) => {

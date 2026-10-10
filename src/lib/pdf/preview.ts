@@ -8,6 +8,8 @@ export type RenderPdfOptions = {
   maxWidthPx: number;
   /** Device pixels per CSS pixel; defaults to `window.devicePixelRatio` (or 1). */
   devicePixelRatio?: number;
+  /** 1-based page to draw, clamped to the document's pages; defaults to 1. */
+  page?: number;
 };
 
 /** Thrown when a newer render for the same canvas superseded this one. */
@@ -47,7 +49,7 @@ type Pending = { task: RenderTask | null };
 const pending = new WeakMap<HTMLCanvasElement, Pending>();
 
 /**
- * Renders page 1 of a PDF into `canvas`, `maxWidthPx` CSS pixels wide, at device resolution.
+ * Renders a page of a PDF (page 1 unless `opts.page` says otherwise) into `canvas`, `maxWidthPx` CSS pixels wide, at device resolution.
  * The page is drawn off screen first, so the canvas keeps its old picture until the new one is ready.
  * A newer call for the same canvas cancels this one, which then rejects with `RenderCancelledError`
  * (see `isRenderCancelled`). Resolves with the page size in PDF points.
@@ -72,7 +74,8 @@ export async function renderPdfPageToCanvas(
     try {
       const doc = await loading.promise;
       if (!current()) throw new RenderCancelledError();
-      const page = await doc.getPage(1);
+      const pageNumber = Math.min(doc.numPages, Math.max(1, Math.floor(opts.page ?? 1)));
+      const page = await doc.getPage(pageNumber);
       if (!current()) throw new RenderCancelledError();
 
       const base = page.getViewport({ scale: 1 });
@@ -106,4 +109,44 @@ export async function renderPdfPageToCanvas(
   } finally {
     if (current()) pending.delete(canvas);
   }
+}
+
+export type OpenedPdf = {
+  numPages: number;
+  /**
+   * Draws page `pageNumber` (1-based) onto a new off-screen canvas at `scale` device pixels per
+   * PDF point. The caller owns the canvas. Resolves with the page size in PDF points.
+   */
+  renderPage(pageNumber: number, scale: number): Promise<{ canvas: HTMLCanvasElement; widthPt: number; heightPt: number }>;
+  /** Releases the document. The shared worker stays up. */
+  destroy(): Promise<void>;
+};
+
+/** Opens a PDF with pdf.js for page-by-page rendering, such as for printing. */
+export async function openPdf(bytes: Uint8Array): Promise<OpenedPdf> {
+  const { pdfjs, worker } = await loadPdfJs();
+  // pdf.js transfers the buffer to its worker, so hand it a copy.
+  const loading = pdfjs.getDocument({ data: bytes.slice(), worker });
+  let doc;
+  try {
+    doc = await loading.promise;
+  } catch (err) {
+    await loading.destroy();
+    throw err;
+  }
+  return {
+    numPages: doc.numPages,
+    async renderPage(pageNumber, scale) {
+      const page = await doc.getPage(pageNumber);
+      const base = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      await page.render({ canvas, viewport, background: '#ffffff' }).promise;
+      page.cleanup();
+      return { canvas, widthPt: base.width, heightPt: base.height };
+    },
+    destroy: () => loading.destroy(),
+  };
 }

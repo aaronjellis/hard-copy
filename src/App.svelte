@@ -2,6 +2,12 @@
   import { onMount } from 'svelte';
   import { loadProfile, saveProfile, type Profile } from './lib/store/profile';
   import { applyTheme, watchSystemTheme } from './lib/store/theme';
+  import { reconcileColumns, type Setup } from './lib/setup/setup';
+  import { createBrowserFontProvider } from './lib/fonts/loader';
+  import type { Dataset } from './lib/sheet/import';
+  import SheetBar from './ui/SheetBar.svelte';
+  import PageCard from './ui/PageCard.svelte';
+  import PreviewPane from './ui/PreviewPane.svelte';
   import ThemeToggle from './ui/ThemeToggle.svelte';
   import SettingsBackup from './ui/SettingsBackup.svelte';
   import AboutDialog from './ui/AboutDialog.svelte';
@@ -11,6 +17,10 @@
   import Info from '@lucide/svelte/icons/info';
 
   let profile = $state<Profile>(loadProfile());
+  // The spreadsheet lives only for this session (spec: the data never persists).
+  let dataset = $state.raw<Dataset | null>(null);
+  // One provider for the session so fonts load once.
+  const fonts = createBrowserFontProvider();
   let about = $state<ReturnType<typeof AboutDialog>>();
   const openAbout = (e: MouseEvent) => about?.open(e.currentTarget as HTMLElement);
 
@@ -20,6 +30,18 @@
   });
 
   onMount(() => watchSystemTheme(() => profile.theme));
+
+  function setSetup(setup: Setup) {
+    profile = { ...profile, setup };
+  }
+
+  /** A new or edited spreadsheet: fit the column setups to its columns (unknown ids drop, new ones get defaults). */
+  function onDataset(ds: Dataset | null) {
+    dataset = ds;
+    if (!ds) return;
+    const next = reconcileColumns(profile.setup, ds.columns);
+    if (next !== profile.setup) setSetup(next);
+  }
 </script>
 
 <main>
@@ -46,8 +68,14 @@
     </div>
   </header>
 
-  <section class="workspace rise" style="--i: 1">
-    <p class="muted">Hard Copy is being built.</p>
+  <SheetBar {dataset} onchange={onDataset} />
+
+  <!-- DOM order is preview, then settings: the visual order at medium and narrow widths. -->
+  <section class="workspace" aria-label="Print setup and preview">
+    <PreviewPane {dataset} setup={profile.setup} {fonts} />
+    <div class="settings">
+      <PageCard setup={profile.setup} onchange={setSetup} />
+    </div>
   </section>
 
   <footer class="footnote">
@@ -105,8 +133,18 @@
   :global(:root[data-theme='dark']) .about-btn:hover:not(:disabled),
   :global(:root[data-theme='dark']) .tools :global(.backup button:hover:not(:disabled)) { background: var(--hover); }
 
-  .workspace { min-height: 240px; }
-  .workspace .muted { margin: 0; }
+  /*
+   * Three tiers. Medium and narrow: the preview full width on top, the settings cards below.
+   * Wide: settings left (5fr), a sticky preview right (7fr); reading-flow (in app.css) makes focus
+   * follow the columns.
+   */
+  .workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; min-width: 0; }
+  .settings { display: grid; gap: 20px; min-width: 0; align-content: start; }
+  @media (min-width: 1180px) {
+    .workspace { grid-template-columns: minmax(380px, 5fr) minmax(520px, 7fr); gap: 32px; }
+    .workspace > :global(.preview) { grid-column: 2; grid-row: 1; position: sticky; top: 24px; }
+    .settings { grid-column: 1; grid-row: 1; --pad: 24px; }
+  }
 
   .footnote {
     margin-top: 48px;

@@ -45,7 +45,7 @@
   let pasteOpen = $state(false);
   let pasteText = $state('');
   let pasteArea = $state<HTMLTextAreaElement>();
-  /** True while a loaded list shows the loader again (Replace list); the old list stays until a new one loads. */
+  /** True while a loaded sheet shows the loader again (Replace); the old sheet stays until a new one loads. */
   let replacing = $state(false);
   /**
    * Bumped by Cancel and by every new load or removal. A file load that finishes under an older
@@ -77,23 +77,27 @@
     return ds;
   }
 
-  async function loadFile(file: File) {
+  /**
+   * Load a file (from the picker, a drop here, or a drop on the spreadsheet bar). Resolves with the
+   * error message shown, or '' when it loaded or was superseded.
+   */
+  export async function loadFile(file: File): Promise<string> {
     const seq = ++loadSeq;
     loading = true;
     error = '';
     try {
       if (WORKBOOK_RE.test(file.name)) {
         const bytes = await file.arrayBuffer();
-        if (seq !== loadSeq) return;
+        if (seq !== loadSeq) return '';
         // Only legacy .xls needs SheetJS's codepage tables.
         const { sheets: all } = await parseWorkbook(bytes, { legacy: file.name.toLowerCase().endsWith('.xls') });
-        if (seq !== loadSeq) return;
+        if (seq !== loadSeq) return '';
         for (const s of all) workbookSheets.set(s.cells, all);
         const first = all[0];
         finishLoad(fromCells(first.cells, file.name, { sheetNames: all.map((s) => s.name), activeSheet: first.name }));
       } else if (TEXT_RE.test(file.name) || file.type.startsWith('text/')) {
         const text = await file.text();
-        if (seq !== loadSeq) return;
+        if (seq !== loadSeq) return '';
         finishLoad(fromCells(parseDelimited(text), file.name));
       } else {
         throw new ImportError(UNREADABLE_FILE);
@@ -103,9 +107,10 @@
     } finally {
       if (seq === loadSeq) loading = false;
     }
+    return seq === loadSeq ? error : '';
   }
 
-  /** Leave Replace list, dropping any load still in flight; the current list stays. */
+  /** Leave Replace, dropping any load still in flight; the current list stays. */
   function cancelReplace() {
     loadSeq++;
     loading = false;
@@ -135,6 +140,14 @@
     if (file) void loadFile(file);
   }
 
+  /** Show the paste box and focus it (the bar's Paste cells opens the dialog straight to it). */
+  export async function openPaste() {
+    if (dataset) replacing = true;
+    pasteOpen = true;
+    await tick();
+    pasteArea?.focus();
+  }
+
   async function togglePaste() {
     pasteOpen = !pasteOpen;
     if (pasteOpen) {
@@ -150,7 +163,7 @@
     }
     try {
       const ds = fromCells(parseDelimited(pasteText), 'Pasted cells');
-      // A file still loading must not replace the pasted list when it finishes.
+      // A file still loading must not replace the pasted cells when it finishes.
       loadSeq++;
       loading = false;
       finishLoad(ds);
@@ -159,14 +172,15 @@
     }
   }
 
-  function chooseSheet(name: string) {
+  /** Switch to another sheet of the loaded workbook. */
+  export function chooseSheet(name: string) {
     if (!dataset || !sheets) return;
     const sheet = sheets.find((s) => s.name === name);
     if (!sheet) return;
     finishLoad(fromCells(sheet.cells, dataset.sourceName, { sheetNames: dataset.sheetNames, activeSheet: name }));
   }
 
-  /** Drop the list. Also cancels any load in flight, so a late file can't bring a list back. */
+  /** Drop the spreadsheet. Also cancels any load in flight, so a late file can't bring one back. */
   export function remove() {
     loadSeq++;
     loading = false;
@@ -177,7 +191,7 @@
   }
 
   /**
-   * Called when the dialog closes: leave an idle Replace list so Edit list reopens on the table.
+   * Called when the dialog closes: leave an idle Replace so Edit reopens on the table.
    * A file still loading keeps going and lands when it finishes.
    */
   export function settle() {
@@ -236,7 +250,7 @@
         onclick={() => fileInput?.click()} ondragover={onDragOver} ondragenter={onDragOver}
         ondragleave={() => (dragging = false)} ondrop={onDrop}>
         {#if loading}<LoaderCircle class="spin" size={24} aria-hidden="true" />{:else}<Upload size={24} aria-hidden="true" />{/if}
-        <span class="drop-title">{loading ? 'Reading your list…' : 'Drop a spreadsheet here, or choose a file'}</span>
+        <span class="drop-title">{loading ? 'Reading your spreadsheet…' : 'Drop a spreadsheet here, or choose a file'}</span>
         <span class="drop-hint">CSV, TSV, or Excel (.xlsx, .xls)</span>
       </button>
       <div class="loader-actions">
@@ -295,15 +309,15 @@
       </div>
       <div class="list-actions">
         <button type="button" class="quiet" onclick={() => { replacing = true; error = ''; }}>
-          <RefreshCw size={16} aria-hidden="true" />Replace list
+          <RefreshCw size={16} aria-hidden="true" />Replace spreadsheet
         </button>
         <button type="button" class="quiet" onclick={remove}>
-          <Trash2 size={16} aria-hidden="true" />Remove list
+          <Trash2 size={16} aria-hidden="true" />Remove spreadsheet
         </button>
       </div>
     </div>
 
-    <div class="table-wrap" role="region" aria-label="List rows" tabindex="-1">
+    <div class="table-wrap" role="region" aria-label="Spreadsheet rows" tabindex="-1">
       <table>
         <thead>
           <tr>

@@ -19,6 +19,12 @@ export type TablePdf = {
   subsetFallbacks: string[];
   /** The layout needed a scale below MIN_SCALE and was clamped. */
   tooSmall: boolean;
+  /** The printable area holds no table (see PrintLayout.noRoom); the one page has bands only. */
+  noRoom: boolean;
+  /** Column bands the table splits into. */
+  bandCount: number;
+  /** Per page, in print order: its column band and its half-open range of printed-row positions. */
+  pages: { band: number; rowStart: number; rowEnd: number }[];
 };
 
 const REGULAR = { bold: false, italic: false };
@@ -129,6 +135,9 @@ export async function buildTablePdf(input: BuildInput, fonts: FontProvider): Pro
     warnings,
     subsetFallbacks: docFonts.subsetFallbacks,
     tooSmall: layout.tooSmall,
+    noRoom: layout.noRoom,
+    bandCount: layout.bandCount,
+    pages: layout.pages.map((p) => ({ band: p.band, rowStart: p.rowStart, rowEnd: p.rowEnd })),
   };
 }
 
