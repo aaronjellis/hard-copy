@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { defaultSetup, reconcileColumns, type Setup } from '../../src/lib/setup/setup';
 import { layoutTable, type LayoutInput } from '../../src/lib/table/layout';
 
-/** Every character is half the font size wide; bold is the same width. */
-const measure = (t: string, s: number) => t.length * s * 0.5;
+/** Every character is half the font size wide, or 0.6 of it in bold. */
+const measure = (t: string, s: number, style: { bold: boolean }) => t.length * s * (style.bold ? 0.6 : 0.5);
 const ctx = { title: 'My title', file: 'data.csv', sheet: 'Sheet1', now: new Date(2026, 0, 2, 9, 30), locale: 'en-US' };
 const NONE = { kind: 'none' as const };
 
@@ -54,7 +54,7 @@ describe('layoutTable: scale', () => {
   it('fitWidth never enlarges a narrow table', () => {
     const layout = layoutTable(input(columns(['Name']), [['Ann']]));
     expect(layout.scale).toBe(1);
-    expect(layout.pages[0].columns[0].width).toBe(30); // "Name" 20 + 2 × 5
+    expect(layout.pages[0].columns[0].width).toBe(34); // bold "Name" 24 + 2 × 5
   });
 
   it('fitPages 1 × 1 takes the width limit when the table is wide', () => {
@@ -98,11 +98,105 @@ describe('layoutTable: scale', () => {
     const cols = columns(fill(10, (i) => `C${i}`));
     const layout = layoutTable(input(cols, [fill(10, () => repeat('a', 20))], (s) => {
       s.page.scale = { mode: 'percent', value: 50 };
-      s.style.leadColumn.bold = true;
+      s.style.leadColumn.fill = '#eeeeee';
     }));
     expect(layout.bandCount).toBe(2);
     expect(layout.pages[1].columns.map((c) => c.id)).toEqual(['c0', 'c9']);
     expect(layout.pages[1].columns.map((c) => c.x)).toEqual([54, 109]);
+  });
+
+  it('measures a bold lead column in bold', () => {
+    // Bold 20-character cells are 120 + 10 = 130 pt, 65 pt at 50%: eight columns fill band 1 (450 pt).
+    const cols = columns(fill(10, (i) => `C${i}`));
+    const layout = layoutTable(input(cols, [fill(10, () => repeat('a', 20))], (s) => {
+      s.page.scale = { mode: 'percent', value: 50 };
+      s.style.leadColumn.bold = true;
+    }));
+    expect(layout.pages[0].columns[0].width).toBe(65);
+    expect(layout.pages[0].columns).toHaveLength(8);
+    expect(layout.pages[1].columns.map((c) => c.id)).toEqual(['c0', 'c8', 'c9']);
+  });
+
+  it('clamps scaled widths to the printable width at percent 200', () => {
+    const layout = layoutTable(input(columns(['Wide', 'B']), [['x', 'y']], (s) => {
+      s.page.scale = { mode: 'percent', value: 200 };
+      s.columns.byId.c0.width = { mode: 'fixed', inches: 5 };
+    }));
+    expect(layout.bandCount).toBe(2);
+    for (const page of layout.pages) {
+      const right = Math.max(...page.columns.map((c) => c.x + c.width));
+      expect(right - layout.printable.x).toBeLessThanOrEqual(layout.printable.width + 1e-6);
+    }
+    expect(layout.pages[0].columns[0].width).toBe(504);
+    expect(layout.pages[0].rows[0].cells[0].lines).toEqual(['x']);
+  });
+
+  it('skips the repeated lead column in a band it would overflow at percent 150', () => {
+    // Fixed 3 in columns are 324 pt at 150%: the lead plus any other column exceeds 504 pt.
+    const cols = columns(['A', 'B', 'C']);
+    const layout = layoutTable(input(cols, [['1', '2', '3']], (s) => {
+      s.page.scale = { mode: 'percent', value: 150 };
+      s.style.leadColumn.bold = true;
+      for (const id of s.columns.order) s.columns.byId[id].width = { mode: 'fixed', inches: 3 };
+    }));
+    expect(layout.pages.map((p) => p.columns.map((c) => c.id))).toEqual([['c0'], ['c1'], ['c2']]);
+    for (const page of layout.pages) {
+      const used = page.columns.reduce((sum, c) => sum + c.width, 0);
+      expect(used).toBeLessThanOrEqual(layout.printable.width + 1e-6);
+    }
+  });
+
+  describe('fitPages refinement', () => {
+    // Relaxed padding: a row of n lines is 13n + 16 pt at scale 1; the header row is 29 pt.
+    const tallRows = (count: number, lines: number) => fill(count, () => [fill(lines, () => 'x').join('\n')]);
+    const twoTall = (s: Setup) => {
+      s.style.padding = 'relaxed';
+      s.page.repeatHeader = false;
+      s.page.scale = { mode: 'fitPages', wide: 1, tall: 2 };
+    };
+
+    it('shrinks below the formula scale when page breaks waste space', () => {
+      // Three 666 pt rows: the formula gives 1368 / 2027, but page 2 needs both remaining rows,
+      // so the scale must drop to 684 / 1332.
+      const formula = 1368 / 2027;
+      const limit = 684 / 1332;
+      const layout = layoutTable(input(columns(['N']), tallRows(3, 50), twoTall));
+      expect(layout.pages).toHaveLength(2);
+      expect(layout.scale).toBeLessThan(formula);
+      expect(layout.scale).toBeLessThanOrEqual(limit + 1e-9);
+      expect(layout.scale).toBeGreaterThan(limit * 0.99);
+      expect(layout.tooSmall).toBe(false);
+    });
+
+    it('clamps to MIN_SCALE without tooSmall when the table fits there exactly', () => {
+      // Three 1368 pt rows: page 2 holds two rows only at 0.25 (2 × 342 = 684).
+      const layout = layoutTable(input(columns(['N']), tallRows(3, 104), twoTall));
+      expect(layout.scale).toBe(0.25);
+      expect(layout.tooSmall).toBe(false);
+      expect(layout.pages).toHaveLength(2);
+    });
+
+    it('reports tooSmall when even MIN_SCALE does not fit', () => {
+      const layout = layoutTable(input(columns(['N']), tallRows(4, 104), twoTall));
+      expect(layout.scale).toBe(0.25);
+      expect(layout.tooSmall).toBe(true);
+      expect(layout.pages).toHaveLength(3);
+    });
+
+    it('shrinks so the repeated lead column still fits in wide: 2', () => {
+      // Six fixed 2 in columns (144 pt): with the lead repeated, band 2 holds the lead plus two
+      // columns only when band 1 holds four, at 504 / 576 = 0.875 or less.
+      const cols = columns(fill(6, (i) => `C${i}`));
+      const layout = layoutTable(input(cols, [fill(6, () => 'x')], (s) => {
+        s.page.scale = { mode: 'fitPages', wide: 2, tall: 1 };
+        s.style.leadColumn.fill = '#eeeeee';
+        for (const id of s.columns.order) s.columns.byId[id].width = { mode: 'fixed', inches: 2 };
+      }));
+      expect(layout.bandCount).toBe(2);
+      expect(layout.scale).toBeLessThanOrEqual(0.875 + 1e-9);
+      expect(layout.scale).toBeGreaterThan(0.875 * 0.99);
+      expect(layout.pages[1].columns.map((c) => c.id)).toEqual(['c0', 'c4', 'c5']);
+    });
   });
 
   it('clamps to 0.25 and reports tooSmall when fitWidth needs less', () => {
@@ -130,7 +224,7 @@ describe('layoutTable: widths and alignment', () => {
   it('caps an auto width at 40% of the printable width', () => {
     const layout = layoutTable(input(columns(['Notes', 'ID']), [[repeat('a', 200), '7']]));
     expect(layout.scale).toBe(1);
-    expect(layout.pages[0].columns.map((c) => c.width)).toEqual([expect.closeTo(201.6, 9), 20]);
+    expect(layout.pages[0].columns.map((c) => c.width)).toEqual([expect.closeTo(201.6, 9), 22]); // bold "ID" 12 + 10
     expect(layout.pages[0].columns.map((c) => c.x)).toEqual([54, expect.closeTo(255.6, 9)]);
   });
 
@@ -166,6 +260,15 @@ describe('layoutTable: rows', () => {
     expect(page.rows[0].height).toBe(36); // 2 × 13 + 2 × 5
   });
 
+  it('sizes a wrap-off auto column to the joined single line', () => {
+    // "12 Elm St Springfield" is 21 characters: 105 + 2 × 5 = 115 pt.
+    const page = layoutTable(input(columns(['Address']), [['12 Elm St\nSpringfield']], (s) => {
+      s.columns.byId.c0.wrap = false;
+    })).pages[0];
+    expect(page.columns[0].width).toBe(115);
+    expect(page.rows[0].cells[0].lines).toEqual(['12 Elm St Springfield']);
+  });
+
   it('keeps one line with an ellipsis when wrap is off', () => {
     const page = layoutTable(input(columns(['T']), [[longText]], oneInch(false))).pages[0];
     expect(page.rows[0].cells[0].lines).toEqual(['aaaa bbbb c…']);
@@ -186,6 +289,39 @@ describe('layoutTable: rows', () => {
       expect(page.header!.y).toBe(715);
       expect([page.rowStart, page.rowEnd]).toEqual([0, 1]);
     }
+  });
+
+  it('continues a split row without the header row when repeatHeader is off', () => {
+    // Page 1 holds 50 lines under the header; later pages hold floor((684 − 10) / 13) = 51.
+    const big = fill(200, () => 'x').join('\n');
+    const layout = layoutTable(input(columns(['Notes']), [[big]], (s) => { s.page.repeatHeader = false; }));
+    expect(layout.pages.map((p) => p.rows[0].cells[0].lines.length)).toEqual([50, 51, 51, 48]);
+    expect(layout.pages.map((p) => p.header !== null)).toEqual([true, false, false, false]);
+    expect(layout.pages[1].rows[0].height).toBe(673);
+    expect(layout.pages[1].rows[0].y).toBe(65);
+  });
+
+  it('prints only the header row when every row is excluded', () => {
+    const rows = [['1'], ['2']];
+    const layout = layoutTable(input(columns(['N']), rows, undefined, [false, false]));
+    expect(layout.pages).toHaveLength(1);
+    expect(layout.pages[0].header).not.toBeNull();
+    expect(layout.pages[0].rows).toEqual([]);
+    expect([layout.pages[0].rowStart, layout.pages[0].rowEnd]).toEqual([0, 0]);
+  });
+
+  it('prints one empty page when no column is included', () => {
+    const cols = columns(['A', 'B']);
+    const layout = layoutTable(input(cols, [['1', '2'], ['3', '4']], (s) => {
+      s.columns.byId.c0.include = false;
+      s.columns.byId.c1.include = false;
+    }));
+    expect(layout.pages).toHaveLength(1);
+    const page = layout.pages[0];
+    expect(page.columns).toEqual([]);
+    expect(page.header).toBeNull();
+    expect(page.rows).toEqual([]);
+    expect([page.rowStart, page.rowEnd]).toEqual([0, 0]);
   });
 
   it('skips excluded rows and columns, drops blank rows, and honors the row limit', () => {
@@ -282,6 +418,16 @@ describe('layoutTable: pagination', () => {
       expect(layout.pages[1].bands.footerText[1]).toBe('Page 2 of 4');
     });
 
+    it('prints the header row on the first page of each band when repeatHeader is off', () => {
+      const layout = layoutTable(input(cols, rows, (s) => {
+        s.page.scale = { mode: 'percent', value: 50 };
+        s.page.repeatHeader = false;
+      }));
+      expect(layout.pages.map((p) => [p.band, p.header !== null])).toEqual([
+        [0, true], [0, false], [1, true], [1, false],
+      ]);
+    });
+
     it('overThenDown prints each page row across the bands first', () => {
       const layout = run('overThenDown');
       expect(layout.pages.map((p) => [p.index, p.band, p.rowStart, p.rowEnd])).toEqual([
@@ -301,12 +447,104 @@ describe('layoutTable: edges', () => {
     expect(layoutTable(make())).toEqual(layoutTable(make()));
   });
 
+  it('resolves date and time once, so every page shows the same text', () => {
+    // Each argument-free `new Date()` jumps 25 hours ahead.
+    const RealDate = Date;
+    let calls = 0;
+    class TickingDate extends RealDate {
+      constructor(value?: number | string | Date) {
+        super(value ?? RealDate.UTC(2026, 0, 2, 9, 0) + calls++ * 25 * 3_600_000);
+      }
+    }
+    vi.stubGlobal('Date', TickingDate);
+    try {
+      const layout = layoutTable({
+        ...input(columns(['N']), fill(100, (i) => [String(i)]), (s) => {
+          s.hf.header = [{ kind: 'date' }, { kind: 'time' }, NONE];
+        }),
+        ctx: { title: '', file: 'data.csv', sheet: 'Sheet1', locale: 'en-US' },
+      });
+      expect(layout.pages.length).toBeGreaterThan(1);
+      const texts = layout.pages.map((p) => p.bands.headerText.join('|'));
+      expect(new Set(texts).size).toBe(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('reports noRoom with one empty page when the printable area is too small', () => {
+    // 3 × 3 in paper with 1.5 in margins leaves nothing.
+    const rows = fill(2000, (i) => [`row ${i}`, String(i)]);
+    const started = performance.now();
+    const layout = layoutTable(input(columns(['A', 'B']), rows, (s) => {
+      s.page.paper = 'custom';
+      s.page.customWidthIn = 3;
+      s.page.customHeightIn = 3;
+      s.page.margins = { top: 1.5, right: 1.5, bottom: 1.5, left: 1.5 };
+    }));
+    expect(performance.now() - started).toBeLessThan(50);
+    expect(layout.noRoom).toBe(true);
+    expect(layout.pages).toHaveLength(1);
+    expect(layout.bandCount).toBe(1);
+    expect(layout.printable.width).toBe(0);
+    expect(layout.printable.height).toBe(0);
+    const page = layout.pages[0];
+    expect(page.rows).toEqual([]);
+    expect(page.header).toBeNull();
+    expect(page.columns).toEqual([]);
+    expect([page.widthPt, page.heightPt]).toEqual([216, 216]);
+  });
+
+  it('reports noRoom when the printable width is under half an inch', () => {
+    const layout = layoutTable(input(columns(['A']), [['1']], (s) => {
+      s.page.paper = 'custom';
+      s.page.customWidthIn = 3;
+      s.page.margins = { top: 0.5, right: 1.3, bottom: 0.5, left: 1.3 };
+    }));
+    expect(layout.noRoom).toBe(true);
+    expect(layoutTable(input(columns(['A']), [['1']])).noRoom).toBe(false);
+  });
+
+  describe('header and footer bands', () => {
+    const cols = columns(['N']);
+    const withDefaults = (title: string, ctxTitle: string) => ({
+      columns: cols,
+      rows: [['1']],
+      included: [true],
+      setup: (() => { const s = reconcileColumns(defaultSetup(), cols); s.hf.title = title; return s; })(),
+      measure,
+      ctx: { ...ctx, title: ctxTitle },
+    });
+
+    it('reserves no header band for the default setup with an empty title', () => {
+      // The default footer (Page N of M) still takes its 14.4 pt band.
+      const layout = layoutTable(withDefaults('', ''));
+      expect(layout.printable.y + layout.printable.height).toBe(738);
+      expect(layout.printable.height).toBeCloseTo(669.6, 9);
+      expect(layout.pages[0].bands.headerText).toEqual(['', '', '']);
+    });
+
+    it('reserves the header band for the setup title, which wins over the context title', () => {
+      const layout = layoutTable(withDefaults('Roster', 'From file'));
+      expect(layout.printable.y + layout.printable.height).toBeCloseTo(723.6, 9);
+      expect(layout.printable.height).toBeCloseTo(655.2, 9);
+      expect(layout.pages[0].bands.headerText).toEqual(['Roster', '', '']);
+    });
+
+    it('falls back to the context title', () => {
+      const layout = layoutTable(withDefaults('', 'From file'));
+      expect(layout.pages[0].bands.headerText).toEqual(['From file', '', '']);
+      expect(layout.printable.height).toBeCloseTo(655.2, 9);
+    });
+  });
+
   it('lays out an empty dataset as one page with no rows', () => {
     const layout = layoutTable(input([], []));
     expect(layout.pages).toHaveLength(1);
     expect(layout.bandCount).toBe(1);
     expect(layout.scale).toBe(1);
     expect(layout.tooSmall).toBe(false);
+    expect(layout.noRoom).toBe(false);
     const page = layout.pages[0];
     expect(page.rows).toEqual([]);
     expect(page.header).toBeNull();

@@ -58,7 +58,12 @@ export type PrintLayout = {
   scale: number;
   /** The scale needed was below MIN_SCALE and was clamped. */
   tooSmall: boolean;
-  /** The table area in PDF space: paper minus margins minus header/footer bands. */
+  /**
+   * The printable area cannot hold a column (under MIN_PRINTABLE_WIDTH) or one row at MIN_SCALE.
+   * The layout is then one page with no columns or rows; header/footer text is still resolved.
+   */
+  noRoom: boolean;
+  /** The table area in PDF space: paper minus margins minus header/footer bands. Never negative. */
   printable: { x: number; y: number; width: number; height: number };
 };
 
@@ -66,6 +71,8 @@ export const MIN_SCALE = 0.25;
 export const LINE_HEIGHT = 1.3;
 export const BAND_FACTOR = 1.6;
 export const AUTO_WIDTH_CAP = 0.4;
+/** Narrowest printable width, in points, that still lays out a table. */
+export const MIN_PRINTABLE_WIDTH = 36;
 export const PADDING_PT: Readonly<Record<CellPadding, number>> = Object.freeze({ compact: 3, normal: 5, relaxed: 8 });
 const ELLIPSIS = '…';
 /** Tolerance for floating-point comparisons, in points. */
@@ -78,48 +85,78 @@ type Fragment = { pos: number; lineStart: number; lineEnd: number };
 type Chunk = { header: boolean; items: Fragment[] };
 
 export function layoutTable(input: LayoutInput): PrintLayout {
-  const { setup, measure } = input;
+  const { setup } = input;
   const { page: pageSetup, style, hf } = setup;
   const paper = resolvePaper(pageSetup);
+  const measure = memoizeMeasure(input.measure);
 
-  // Step 1: printable area.
+  // Slot text: one clock reading per layout, and the setup title over the dataset's.
+  const baseCtx = { ...input.ctx, title: hf.title || input.ctx.title || '', now: input.ctx.now ?? new Date() };
+  const slotsFor = (page: number, pageCount: number) => {
+    const slotCtx: SlotContext = { ...baseCtx, page, pageCount };
+    return { headerText: resolveSlots(hf.header, slotCtx), footerText: resolveSlots(hf.footer, slotCtx) };
+  };
+
+  // Step 1: printable area. A band is reserved only when a slot prints something.
   const bandSize = hf.size * BAND_FACTOR;
-  const headerBand = hasText(hf.header) ? bandSize : 0;
-  const footerBand = hasText(hf.footer) ? bandSize : 0;
+  const first = slotsFor(1, 1);
+  const headerBand = first.headerText.some((t) => t !== '') ? bandSize : 0;
+  const footerBand = first.footerText.some((t) => t !== '') ? bandSize : 0;
   const m = pageSetup.margins;
   const printable = {
     x: m.left * POINTS_PER_INCH,
     y: m.bottom * POINTS_PER_INCH + footerBand,
-    width: paper.widthPt - (m.left + m.right) * POINTS_PER_INCH,
-    height: paper.heightPt - (m.top + m.bottom) * POINTS_PER_INCH - headerBand - footerBand,
+    width: Math.max(0, paper.widthPt - (m.left + m.right) * POINTS_PER_INCH),
+    height: Math.max(0, paper.heightPt - (m.top + m.bottom) * POINTS_PER_INCH - headerBand - footerBand),
   };
   const top = printable.y + printable.height;
+  const pageBands = (page: number, pageCount: number): Page['bands'] => ({
+    ...slotsFor(page, pageCount),
+    headerY: paper.heightPt - m.top * POINTS_PER_INCH - bandSize,
+    footerY: m.bottom * POINTS_PER_INCH,
+    bandSize,
+  });
+
+  const basePad = PADDING_PT[style.padding];
+  const body = style.bodySize;
+
+  // No room for a column or a single row at the smallest scale: one empty page.
+  const minRowH = (LINE_HEIGHT * body + 2 * basePad) * MIN_SCALE;
+  if (printable.width < MIN_PRINTABLE_WIDTH || printable.height < minRowH - EPS) {
+    const page: Page = {
+      index: 0, band: 0, rowStart: 0, rowEnd: 0, widthPt: paper.widthPt, heightPt: paper.heightPt,
+      scale: 1, fontSize: body, columns: [], header: null, rows: [], bands: pageBands(1, 1),
+    };
+    return { pages: [page], bandCount: 1, scale: 1, tooSmall: false, noRoom: true, printable };
+  }
 
   const cols = selectColumns(input);
   const positions = selectRows(input, cols);
   const repeatLead = style.leadColumn.fill !== null || style.leadColumn.bold;
   const cellBold = (c: Col) => c.lead && style.leadColumn.bold;
   const text = (c: Col, pos: number) => input.rows[positions[pos]]?.[c.dataIndex] ?? '';
-  const basePad = PADDING_PT[style.padding];
-  const body = style.bodySize;
 
-  // Step 2: natural widths.
+  // Step 2: natural widths. With wrap off, a cell prints as one line, so measure that line.
   const natural = cols.map((c) => {
     if (c.setup.width.mode === 'fixed') return Math.min(c.setup.width.inches * POINTS_PER_INCH, printable.width);
-    let widest = maxLineWidth(c.name, (t) => measure(t, body, { bold: style.header.bold }));
-    for (let p = 0; p < positions.length; p++) {
-      widest = Math.max(widest, maxLineWidth(text(c, p), (t) => measure(t, body, { bold: cellBold(c) })));
-    }
+    const widthOf = (value: string, bold: boolean) => c.setup.wrap
+      ? maxLineWidth(value, (t) => measure(t, body, { bold }))
+      : measure(singleLine(value), body, { bold });
+    let widest = widthOf(c.name, style.header.bold);
+    for (let p = 0; p < positions.length; p++) widest = Math.max(widest, widthOf(text(c, p), cellBold(c)));
     return Math.min(widest + 2 * basePad, AUTO_WIDTH_CAP * printable.width);
   });
   const naturalSum = natural.reduce((a, b) => a + b, 0);
+  /** Column widths at a scale, never wider than the printable area (percent scales go up to 200). */
+  const widthsAt = (scale: number) => natural.map((w) => Math.min(w * scale, printable.width));
 
   // Cell lines at a given scale (step 4).
   const linesAt = (scale: number) => {
     const size = body * scale;
     const pad = basePad * scale;
+    const scaled = widthsAt(scale);
     const cellLines = (c: Col, i: number, value: string, bold: boolean) =>
-      layoutCell(value, natural[i] * scale - 2 * pad, c.setup.wrap, (t) => measure(t, size, { bold }));
+      layoutCell(value, Math.max(0, scaled[i] - 2 * pad), c.setup.wrap, (t) => measure(t, size, { bold }));
     const header = cols.map((c, i) => cellLines(c, i, c.name, style.header.bold));
     const rows = positions.map((_, p) => cols.map((c, i) => cellLines(c, i, text(c, p), cellBold(c))));
     return { header, rows };
@@ -146,9 +183,14 @@ export function layoutTable(input: LayoutInput): PrintLayout {
     scale = Math.min(1, byWidth, byHeight);
     // The formulas ignore page-break waste and the repeated lead column; shrink until the table fits.
     const fits = (s: number) =>
-      packBands(natural.map((w) => w * s), cols, repeatLead, printable.width).length <= mode.wide &&
+      packBands(widthsAt(s), cols, repeatLead, printable.width).length <= mode.wide &&
       paginate(counts, LINE_HEIGHT * body * s, basePad * s, headerH1 * s, printable.height, pageSetup.repeatHeader).length <= mode.tall;
     while (scale >= MIN_SCALE && !fits(scale)) scale *= REFINE_STEP;
+    // The last step can overshoot MIN_SCALE; the table may still fit at MIN_SCALE itself.
+    if (scale < MIN_SCALE) {
+      scale = MIN_SCALE;
+      tooSmall = !fits(MIN_SCALE);
+    }
   }
   if (scale < MIN_SCALE) {
     scale = MIN_SCALE;
@@ -158,7 +200,7 @@ export function layoutTable(input: LayoutInput): PrintLayout {
   const fontSize = body * scale;
   const pad = basePad * scale;
   const lineH = LINE_HEIGHT * fontSize;
-  const widths = natural.map((w) => w * scale);
+  const widths = widthsAt(scale);
   const aligns = cols.map((c) => resolveAlign(c, positions.length, (p) => text(c, p)));
   const lines = linesAt(scale);
   const counts = lines.rows.map(rowLineCount);
@@ -200,13 +242,12 @@ export function layoutTable(input: LayoutInput): PrintLayout {
       cursor -= height;
       return { y: cursor, height, cells: cellsFor(lines.rows[f.pos], f.lineStart, f.lineEnd), index: positions[f.pos] };
     });
-    const first = chunk.items[0];
+    const firstItem = chunk.items[0];
     const last = chunk.items[chunk.items.length - 1];
-    const slotCtx: SlotContext = { ...input.ctx, page: index + 1, pageCount };
     return {
       index,
       band: b,
-      rowStart: first ? first.pos : chunkStart(chunks, c),
+      rowStart: firstItem ? firstItem.pos : chunkStart(chunks, c),
       rowEnd: last ? last.pos + 1 : chunkStart(chunks, c),
       widthPt: paper.widthPt,
       heightPt: paper.heightPt,
@@ -215,21 +256,34 @@ export function layoutTable(input: LayoutInput): PrintLayout {
       columns: placedCols,
       header,
       rows,
-      bands: {
-        headerText: resolveSlots(hf.header, slotCtx),
-        footerText: resolveSlots(hf.footer, slotCtx),
-        headerY: paper.heightPt - m.top * POINTS_PER_INCH - bandSize,
-        footerY: m.bottom * POINTS_PER_INCH,
-        bandSize,
-      },
+      bands: pageBands(index + 1, pageCount),
     };
   });
 
-  return { pages, bandCount: bands.length, scale, tooSmall, printable };
+  return { pages, bandCount: bands.length, scale, tooSmall, noRoom: false, printable };
 }
 
-function hasText(slots: readonly Slot[]): boolean {
-  return slots.some((s) => s.kind !== 'none');
+/**
+ * Cache widths per (text, bold) at size 1 and scale by the requested size. `measure` must be linear
+ * in size (LayoutInput requires it), so results match calling it directly.
+ */
+function memoizeMeasure(measure: LayoutInput['measure']): LayoutInput['measure'] {
+  const regular = new Map<string, number>();
+  const bold = new Map<string, number>();
+  return (text, sizePt, style) => {
+    const cache = style.bold ? bold : regular;
+    let w = cache.get(text);
+    if (w === undefined) {
+      w = measure(text, 1, style);
+      cache.set(text, w);
+    }
+    return w * sizePt;
+  };
+}
+
+/** A multi-line value as the single line a wrap-off cell prints. */
+function singleLine(value: string): string {
+  return value.replace(/\s*\n\s*/g, ' ');
 }
 
 function resolveSlots(slots: [Slot, Slot, Slot], ctx: SlotContext): [string, string, string] {
@@ -256,10 +310,14 @@ function selectColumns(input: LayoutInput): Col[] {
   return cols;
 }
 
-/** Dataset row indices that print: included, non-blank unless blanks are on, capped at the row limit. */
+/**
+ * Dataset row indices that print: included, non-blank unless blanks are on, capped at the row limit.
+ * None when no column prints.
+ */
 function selectRows(input: LayoutInput, cols: Col[]): number[] {
   const { rows: rowSetup } = input.setup;
   const out: number[] = [];
+  if (cols.length === 0) return out;
   for (let r = 0; r < input.rows.length; r++) {
     if (rowSetup.limit !== null && out.length >= rowSetup.limit) break;
     if (input.included[r] === false) continue;
@@ -277,7 +335,7 @@ function maxLineWidth(value: string, width: (t: string) => number): number {
 /** A cell's lines: wrapped at `inner` points per source line, or one line truncated with an ellipsis. */
 function layoutCell(value: string, inner: number, wrap: boolean, width: (t: string) => number): string[] {
   if (wrap) return value.split('\n').flatMap((line) => wrapLine(line, width, inner + EPS));
-  return [truncate(value.replace(/\s*\n\s*/g, ' '), inner, width)];
+  return [truncate(singleLine(value), inner, width)];
 }
 
 function truncate(value: string, inner: number, width: (t: string) => number): string {
@@ -320,8 +378,9 @@ function resolveAlign(c: Col, count: number, text: (pos: number) => string): Ali
 }
 
 /**
- * Split column indices into bands no wider than `available`. Each band takes at least one new column;
- * with `repeatLead`, bands after the first start with the lead column.
+ * Split column indices into bands no wider than `available` (each width is at most `available`).
+ * Each band takes at least one new column; with `repeatLead`, bands after the first start with the
+ * lead column unless the lead plus the band's first new column would overflow.
  */
 function packBands(widths: number[], cols: Col[], repeatLead: boolean, available: number): number[][] {
   if (cols.length === 0) return [[]];
@@ -330,7 +389,7 @@ function packBands(widths: number[], cols: Col[], repeatLead: boolean, available
   while (i < cols.length) {
     const band: number[] = [];
     let used = 0;
-    if (repeatLead && bands.length > 0) {
+    if (repeatLead && bands.length > 0 && widths[0] + widths[i] <= available + EPS) {
       band.push(0);
       used = widths[0];
     }
@@ -378,7 +437,7 @@ function paginate(counts: number[], lineH: number, pad: number, headerH: number,
     }
     let start = 0;
     while (start < n) {
-      const fit = Math.max(1, Math.floor((available - used - 2 * pad + EPS) / lineH));
+      const fit = Math.max(1, Math.floor(Math.max(0, available - used - 2 * pad + EPS) / lineH));
       const end = Math.min(n, start + fit);
       cur.items.push({ pos, lineStart: start, lineEnd: end });
       used += (end - start) * lineH + 2 * pad;
