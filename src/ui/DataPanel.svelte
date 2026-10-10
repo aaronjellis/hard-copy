@@ -289,7 +289,7 @@
       {/if}
     </div>
 
-    <div class="controls">
+    <div class="controls switches">
       <span class="toggle">
         <button type="button" class="switch" role="switch" aria-checked={dataset.headerRow} aria-labelledby="{id}-hdr"
           onclick={() => dataset && onchange(setHeaderRow(dataset, !dataset.headerRow))}></button>
@@ -302,17 +302,17 @@
       </span>
     </div>
 
-    <div class="controls">
+    <div class="controls row-tools">
       <div class="segmented" role="group" aria-label="Row selection">
         <button type="button" onclick={() => dataset && onchange(setAllIncluded(dataset, true))}>Select all</button>
         <button type="button" onclick={() => dataset && onchange(setAllIncluded(dataset, false))}>Clear</button>
       </div>
       <div class="list-actions">
-        <button type="button" class="quiet" onclick={() => { replacing = true; error = ''; }}>
-          <RefreshCw size={16} aria-hidden="true" />Replace spreadsheet
+        <button type="button" class="quiet" aria-label="Replace spreadsheet" onclick={() => { replacing = true; error = ''; }}>
+          <RefreshCw size={16} aria-hidden="true" /><span class="label">Replace spreadsheet</span><span class="label-short" aria-hidden="true">Replace</span>
         </button>
-        <button type="button" class="quiet" onclick={remove}>
-          <Trash2 size={16} aria-hidden="true" />Remove spreadsheet
+        <button type="button" class="quiet" aria-label="Remove spreadsheet" onclick={remove}>
+          <Trash2 size={16} aria-hidden="true" /><span class="label">Remove spreadsheet</span><span class="label-short" aria-hidden="true">Remove</span>
         </button>
       </div>
     </div>
@@ -353,7 +353,7 @@
       </table>
     </div>
     {#if dataset.rows.length > MAX_SHOWN}
-      <p class="muted note">Showing {MAX_SHOWN} of {dataset.rows.length} rows. Select all and Clear apply to every row.</p>
+      <p class="muted note">Showing {MAX_SHOWN} of {dataset.rows.length.toLocaleString()} rows. Select all and Clear apply to every row.</p>
     {/if}
   {/if}
 </div>
@@ -397,16 +397,18 @@
   .error { margin: 0; font-size: 14px; }
   .note { margin: 0; font-size: 13px; }
 
-  .source { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+  /* One row: the file name truncates first, and a long sheet name truncates in its picker. */
+  .source { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .source :global(.lucide) { color: var(--muted); }
   .source-name { min-width: 0; flex: 1 1 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
-  .sheet { min-height: 36px; padding: 4px 36px 4px 12px; font-size: 14px; border-radius: 9999px; max-width: 100%; }
+  .sheet { flex: 0 1 auto; min-width: 0; max-width: 55%; min-height: 36px; padding: 4px 36px 4px 12px; font-size: 14px; border-radius: 9999px; }
 
   .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
   .toggle { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-soft); }
   .controls .segmented button { min-height: 30px; padding: 0 12px; font-size: 13px; }
   .list-actions { display: flex; gap: 4px; margin-left: auto; }
-  .list-actions button { min-height: 36px; padding: 0 10px; font-size: 13px; }
+  .list-actions button { min-height: 36px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
+  .label-short { display: none; }
 
   /* Same switch as the card headers' Print toggle. */
   .switch {
@@ -509,7 +511,18 @@
     border-radius: 6px;
   }
 
+  /*
+   * Phone: each control group takes its own full-width row instead of wrapping ragged: the switches
+   * one per line, Select all and Clear as a stretched track, and Replace and Remove sharing a row
+   * with short labels.
+   */
   @media (max-width: 480px) {
-    .list-actions { margin-left: 0; }
+    .switches .toggle { flex: 1 1 100%; }
+    .row-tools .segmented { display: flex; flex: 1 1 100%; }
+    .row-tools .segmented button { flex: 1 1 0; }
+    .list-actions { flex: 1 1 100%; margin-left: 0; }
+    .list-actions button { flex: 1 1 0; }
+    .list-actions .label { display: none; }
+    .list-actions .label-short { display: inline; }
   }
 </style>

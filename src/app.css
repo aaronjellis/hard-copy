@@ -297,8 +297,10 @@ label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; c
 .setup-card .sub-title { margin: 0; font-family: var(--font-ui); font-size: 15px; font-weight: 600; letter-spacing: 0; color: var(--text); }
 .setup-card .segmented.fill { display: flex; width: 100%; }
 .setup-card .segmented.fill button { flex: 1 1 0; gap: 6px; min-width: 0; min-height: 40px; padding: 0 8px; white-space: nowrap; }
-.setup-card .inline-fields { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; font-size: 14px; color: var(--text-soft); }
-.setup-card .inline-fields input.small { width: 88px; }
+/* "[1] wide × [1] tall": one line; the number fields give up width first on the narrowest phones. */
+.setup-card .inline-fields { display: flex; align-items: center; gap: 8px 10px; min-width: 0; font-size: 14px; color: var(--text-soft); }
+.setup-card .inline-fields > * { flex: none; }
+.setup-card .inline-fields input.small { flex: 0 1 88px; width: 88px; min-width: 60px; }
 .setup-card .toggle {
   display: flex;
   align-items: center;
@@ -363,6 +365,10 @@ label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; c
 
 @media (max-width: 759px) {
   main { padding: 20px 16px 40px; }
+}
+/* The narrowest phones: card titles step down so "Headers and footers" stays on one line. */
+@media (max-width: 359px) {
+  .card-title { font-size: 18px; }
 }
 
 /* Scroll lock while a modal dialog is open (AboutDialog.svelte, ListDialog.svelte). */

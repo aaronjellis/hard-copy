@@ -60,7 +60,9 @@
   }
   summary::-webkit-details-marker { display: none; }
   summary:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
-  summary > :global(.lucide) { color: var(--muted); }
+  /* The icon sits on the title's line, not centered on the title and the summary together. */
+  summary > :global(.lucide) { align-self: flex-start; margin-top: 3px; color: var(--muted); }
+  details[open] > summary > :global(.lucide) { align-self: center; margin-top: 0; }
   .heading { display: grid; flex: 1 1 auto; min-width: 0; }
   .summary-line { font-size: 14px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   details[open] .summary-line { display: none; }
@@ -78,10 +80,22 @@
   summary:hover .chevron { background: var(--hover); }
   details[open] .chevron { transform: rotate(180deg); }
 
+  /* The narrowest phones: a little more room for the title so it stays on one line. */
+  @media (max-width: 359px) {
+    summary { gap: 8px; }
+    .chevron { width: 32px; height: 32px; }
+    /* The 18px title's line is 23px tall. */
+    summary > :global(.lucide) { margin-top: 2px; }
+  }
+
   .card-body {
     display: grid;
+    /* minmax(0, 1fr): a segmented row's labels never widen the card past the page. */
+    grid-template-columns: minmax(0, 1fr);
     gap: 20px;
     min-width: 0;
     padding: 0 var(--pad, 20px) var(--pad, 20px);
+    /* Card content can lay out by the card's width (StyleCard's borders row). */
+    container: card / inline-size;
   }
 </style>

@@ -87,7 +87,7 @@
     <h2 id="{id}-title" class="card-title">Spreadsheet</h2>
   </div>
 
-  <div class="controls">
+  <div class="controls" class:loaded={!!dataset && !dropping}>
     {#if dropping}
       <span class="pill" aria-live="polite">
         <LoaderCircle class="spin" size={16} aria-hidden="true" />
@@ -116,8 +116,8 @@
       </div>
     {:else}
       <button type="button" class="load" bind:this={loadButton} aria-haspopup="dialog" aria-describedby="{id}-hint"
-        onclick={(e) => listDialog?.open(e.currentTarget)}>
-        <Upload size={18} aria-hidden="true" />Load spreadsheet
+        aria-label="Load spreadsheet" onclick={(e) => listDialog?.open(e.currentTarget)}>
+        <Upload size={18} aria-hidden="true" /><span class="label">Load spreadsheet</span><span class="label-short" aria-hidden="true">Load file</span>
       </button>
       <button type="button" class="paste" aria-haspopup="dialog" onclick={(e) => listDialog?.open(e.currentTarget, { paste: true })}>
         <ClipboardPaste size={18} aria-hidden="true" />Paste cells
@@ -140,7 +140,8 @@
     align-items: center;
     gap: 12px 24px;
     min-width: 0;
-    margin-bottom: 24px;
+    /* The same gap as between the cards below, and the cards' side padding so the title icons line up. */
+    margin-bottom: 20px;
     padding: 16px 20px;
     background: var(--surface);
     border: 1px solid var(--hairline);
@@ -165,7 +166,8 @@
 
   /* Empty: a dashed pill (the drop target's look) and Paste cells beside it. */
   .load { border-style: dashed; }
-  .load, .paste { min-height: 40px; }
+  .load, .paste { min-height: 40px; white-space: nowrap; }
+  .label-short { display: none; }
   .hint { font-size: 13px; color: var(--muted); }
 
   /* Loaded: one summary pill that truncates the file name first. */
@@ -199,16 +201,27 @@
 
   .error { flex-basis: 100%; margin: 0; font-size: 14px; }
 
+  /* Loaded, from tablet widths up: one row; the file name truncates before the actions wrap. */
+  @media (min-width: 760px) {
+    .controls.loaded { flex-wrap: nowrap; }
+  }
+  @media (min-width: 1180px) {
+    .sheet-bar { padding: 16px 24px; }
+  }
+
   @media (max-width: 759px) {
-    .sheet-bar { margin-bottom: 20px; padding: 16px; }
+    .sheet-bar { padding: 16px 20px; }
     .controls { flex-basis: 100%; justify-content: flex-start; }
     .hint { flex-basis: 100%; }
     /* Phone: the pill takes the row; the sheet picker and the actions share the next one. */
     .pill { flex: 1 1 100%; }
-    .sheet { flex: 1 1 auto; max-width: none; }
+    .sheet { flex: 1 1 0; max-width: none; }
     .loaded-actions { margin-left: auto; }
   }
   @media (max-width: 480px) {
-    .load, .paste { flex: 1 1 0; padding: 0 12px; }
+    /* Phone: Load and Paste share the row; Load takes its short label so neither wraps. */
+    .load, .paste { flex: 1 1 auto; padding: 0 12px; }
+    .load .label { display: none; }
+    .load .label-short { display: inline; }
   }
 </style>

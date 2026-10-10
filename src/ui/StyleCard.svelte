@@ -122,7 +122,8 @@
 
 <style>
   /* The compact font panel spans this row (its nearest positioned ancestor) and floats below it. */
-  .font-row { position: relative; display: flex; flex-wrap: wrap; align-items: end; gap: 12px 24px; min-width: 0; }
+  /* One row at every width: the font name truncates before Size wraps under it. */
+  .font-row { position: relative; display: flex; align-items: end; gap: 16px; min-width: 0; }
   .font-row > .field:first-child { flex: 0 1 auto; min-width: 0; }
   .font-row :global(.font-picker .trigger) { min-height: 48px; max-width: 100%; }
   .size { flex: none; }
@@ -134,4 +135,10 @@
   .sub-title { flex: 1 1 auto; }
   .borders { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; min-width: 0; }
   .borders .segmented button { min-height: 40px; }
+  /* Narrowest cards: the track stretches across the card and the color sits under it, by design. */
+  @container card (max-width: 289px) {
+    .borders { flex-direction: column; align-items: stretch; gap: 12px; }
+    .borders .segmented { display: flex; }
+    .borders .segmented button { flex: 1 1 0; }
+  }
 </style>

@@ -89,7 +89,7 @@
   <div class="foot">
     <p class="summary" aria-live="polite">
       {#if dataset}
-        {dataset.rows.length} {dataset.rows.length === 1 ? 'row' : 'rows'} · {dataset.columns.length}
+        {dataset.rows.length.toLocaleString()} {dataset.rows.length === 1 ? 'row' : 'rows'} · {dataset.columns.length.toLocaleString()}
         {dataset.columns.length === 1 ? 'column' : 'columns'}
       {:else}
         No spreadsheet loaded

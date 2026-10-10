@@ -268,6 +268,8 @@
     background: var(--surface);
     border: 1px solid var(--divider);
     border-radius: var(--radius);
+    /* The options row below lays out by the row's own width (narrow on phones and in the wide tier's left column). */
+    container-type: inline-size;
   }
   .col.excluded { padding-bottom: 8px; background: var(--subtle); }
   .col.excluded .col-name { color: var(--muted); }
@@ -320,7 +322,7 @@
   .icon-btn:hover:not(:disabled) { background: var(--hover); border-color: transparent; }
   .icon-btn:disabled { opacity: 0.3; }
 
-  /* Options sit under the name row; they wrap onto more lines on narrow cards. */
+  /* Options sit under the name row: one line when the row is wide, Wrap pushed to the end. */
   .col-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; padding-left: 6px; }
   .width { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
   .col-opts select { min-height: 40px; padding: 6px 30px 6px 12px; font-size: 14px; background-position: calc(100% - 17px) 52%, calc(100% - 12px) 52%; }
@@ -329,7 +331,20 @@
   .align { gap: 2px; padding: 2px; }
   .align button { min-height: 34px; padding: 0 9px; font-size: 13px; }
   .align .icon-only { width: 32px; padding: 0; }
-  .wrap { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-soft); }
+  .wrap { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 14px; color: var(--text-soft); }
+
+  /*
+   * Narrow rows: the width control and the alignment track stretch to fill their line (one line when
+   * both fit, else one each), and Wrap is a full-width switch row like the cards' other switches.
+   * Nothing is left stranded at the start of a line.
+   */
+  @container (max-width: 479px) {
+    .width { flex: 1 1 auto; }
+    .width select { flex: 1 1 auto; min-width: 0; }
+    .align { flex: 1 1 auto; }
+    .align button { flex: 1 1 auto; }
+    .wrap { flex: 1 1 100%; justify-content: space-between; min-height: 32px; margin-left: 0; }
+  }
 
   .limit { max-width: 160px; }
 

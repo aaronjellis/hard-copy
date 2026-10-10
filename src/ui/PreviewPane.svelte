@@ -442,7 +442,8 @@
     box-shadow: var(--shadow-float);
   }
   /* One row, always: the updating note comes and goes on every change, so the header never wraps. */
-  .preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 24px; min-width: 0; }
+  /* As tall as a settings card's header (its 36px chevron), so the titles line up side by side in the wide tier. */
+  .preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; min-width: 0; }
   .preview-head > .title-line { flex: none; }
   .updating { flex: none; margin: 0; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
   .page-caption { margin-left: auto; display: inline-flex; align-items: baseline; gap: 10px; min-width: 0; max-width: 300px; font-size: 14px; white-space: nowrap; }

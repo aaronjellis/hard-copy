@@ -86,15 +86,8 @@
     </div>
   </section>
 
+  <!-- One row, evenly spaced: the sibling-tool card, About, Support. Shared .promo-card styles live in app.css. -->
   <footer class="footnote">
-    <div class="footnote-links">
-      <button type="button" class="text-link" onclick={openAbout}>About Hard Copy</button>
-      <a class="coffee" href="https://buymeacoffee.com/madebyaaron" target="_blank" rel="noopener">
-        <Coffee size={18} aria-hidden="true" />
-        Support my experiments
-      </a>
-    </div>
-    <!-- Cross-promo for the sibling tool. Shared .promo-card styles live in app.css. -->
     <a class="promo-card" href="https://labs.aaronjellis.com/letter-rip/">
       <span class="promo-icon"><Mail size={18} aria-hidden="true" /></span>
       <span class="promo-text">
@@ -102,6 +95,11 @@
         <span class="promo-sub">Try Letter Rip, my envelope printing utility.</span>
       </span>
       <ArrowRight size={18} aria-hidden="true" class="promo-arrow" />
+    </a>
+    <button type="button" class="text-link" onclick={openAbout}>About Hard Copy</button>
+    <a class="coffee" href="https://buymeacoffee.com/madebyaaron" target="_blank" rel="noopener">
+      <Coffee size={18} aria-hidden="true" />
+      Support my experiments
     </a>
   </footer>
 
@@ -159,9 +157,16 @@
     padding-top: 24px;
     border-top: 1px solid var(--divider);
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px 24px;
+    flex-wrap: wrap;
+  }
+  /* The card leads the row and gives way first; on phones it takes its own row with the links spread below. */
+  .footnote :global(.promo-card) { flex: 0 1 520px; width: auto; }
+  @media (max-width: 759px) {
+    .footnote { column-gap: 16px; }
+    .footnote :global(.promo-card) { flex-basis: 100%; max-width: none; }
   }
   /* Support link: quiet outlined pill in the app's own system, no third-party script. */
   .coffee {
@@ -181,7 +186,6 @@
   .coffee:hover { background: var(--subtle); }
   .coffee:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
   .coffee :global(.lucide) { color: var(--coral-icon); }
-  .footnote-links { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; }
   /* Opens the About dialog: a plain text link, not another pill. */
   .text-link {
     min-height: 40px;
@@ -196,7 +200,7 @@
   }
   .text-link:hover:not(:disabled) { background: none; color: var(--text); }
 
-  @media (max-width: 760px) {
+  @media (max-width: 759px) {
     .masthead { margin-bottom: 24px; }
     h1 { font-size: 24px; }
     .monogram { width: 36px; height: 36px; }
