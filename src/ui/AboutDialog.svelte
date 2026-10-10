@@ -58,8 +58,9 @@
     </p>
     <p>
       Everything runs on your device and nothing is uploaded, so it works on managed Chromebooks and
-      other locked-down computers. Export your setup to a file and import it on another computer to
-      pick up where you left off.
+      other locked-down computers. Font previews for Google Fonts search results are fetched from
+      Google. Export your setup to a file and import it on another computer to pick up where you left
+      off.
     </p>
     <p>
       It is free and open source. The code is on

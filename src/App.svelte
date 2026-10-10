@@ -7,6 +7,9 @@
   import type { Dataset } from './lib/sheet/import';
   import SheetBar from './ui/SheetBar.svelte';
   import PageCard from './ui/PageCard.svelte';
+  import ColumnsCard from './ui/ColumnsCard.svelte';
+  import StyleCard from './ui/StyleCard.svelte';
+  import HeaderFooterCard from './ui/HeaderFooterCard.svelte';
   import PreviewPane from './ui/PreviewPane.svelte';
   import ThemeToggle from './ui/ThemeToggle.svelte';
   import SettingsBackup from './ui/SettingsBackup.svelte';
@@ -23,6 +26,8 @@
   const fonts = createBrowserFontProvider();
   let about = $state<ReturnType<typeof AboutDialog>>();
   const openAbout = (e: MouseEvent) => about?.open(e.currentTarget as HTMLElement);
+  // Page starts open everywhere; the other cards start open from tablet widths up and collapsed on phones.
+  const cardsOpen = window.matchMedia('(min-width: 760px)').matches;
 
   $effect(() => {
     saveProfile(profile);
@@ -75,6 +80,9 @@
     <PreviewPane {dataset} setup={profile.setup} {fonts} />
     <div class="settings">
       <PageCard setup={profile.setup} onchange={setSetup} />
+      <ColumnsCard setup={profile.setup} {dataset} onchange={setSetup} open={cardsOpen} />
+      <StyleCard setup={profile.setup} onchange={setSetup} open={cardsOpen} />
+      <HeaderFooterCard setup={profile.setup} onchange={setSetup} open={cardsOpen} />
     </div>
   </section>
 

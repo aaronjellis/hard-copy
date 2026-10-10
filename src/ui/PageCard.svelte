@@ -4,6 +4,8 @@
     type Margins, type MarginPreset, type PaperId,
   } from '../lib/setup/paper';
   import { SETUP_LIMITS, type PageOrder, type PageSetup, type Scale, type Setup } from '../lib/setup/setup';
+  import { pageSummary } from '../lib/setup/summary';
+  import SetupCard from './SetupCard.svelte';
   import FileText from '@lucide/svelte/icons/file-text';
   import RectangleVertical from '@lucide/svelte/icons/rectangle-vertical';
   import RectangleHorizontal from '@lucide/svelte/icons/rectangle-horizontal';
@@ -131,11 +133,7 @@
   }
 </script>
 
-<section class="card page-card rise" style="--i: 3" aria-labelledby="{id}-title">
-  <div class="title-line">
-    <FileText size={20} aria-hidden="true" />
-    <h2 id="{id}-title" class="card-title">Page</h2>
-  </div>
+<SetupCard title="Page" icon={FileText} summary={pageSummary(setup)} rise={3}>
 
   <div class="field paper">
     <label for="{id}-paper">Paper</label>
@@ -254,82 +252,19 @@
     </select>
     <p id="{id}-order-hint" class="muted hint">When the sheet is more than one page wide.</p>
   </div>
-</section>
+</SetupCard>
 
 <style>
-  .card {
-    display: grid;
-    gap: 20px;
-    min-width: 0;
-    padding: var(--pad, 20px);
-    background: var(--surface);
-    border: 1px solid var(--hairline);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-card);
-    transition: box-shadow 120ms ease;
-  }
-  .card:hover { box-shadow: var(--shadow-card-hover); }
-
-  .field { display: grid; gap: 8px; min-width: 0; align-content: start; }
-  .field label, .field-label { display: block; margin: 0; font-size: 14px; font-weight: 500; color: var(--text); }
-  select, input { width: 100%; min-width: 0; }
-
   .custom-paper { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
   .custom-paper .units { height: 48px; align-items: center; }
   .custom-paper .hint { grid-column: 1 / -1; }
-  .hint { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 14px; }
-
-  /* A segmented row that spans the card; each choice takes an equal share. */
-  .segmented.fill { display: flex; width: 100%; }
-  .segmented.fill button { flex: 1 1 0; gap: 6px; min-width: 0; min-height: 40px; padding: 0 8px; white-space: nowrap; }
 
   .sides { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 4px; }
   .sides input { padding: 12px 10px; }
 
-  .inline-fields { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; font-size: 14px; color: var(--text-soft); }
-  .inline-fields input.small { width: 88px; }
   .range { font-size: 14px; }
 
   .switches { display: grid; gap: 4px; padding-top: 16px; border-top: 1px solid var(--divider); }
-  .toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 40px;
-    font-size: 15px;
-    color: var(--text);
-  }
-
-  .switch {
-    position: relative;
-    flex: none;
-    width: 44px;
-    min-height: 0;
-    height: 26px;
-    padding: 0;
-    border: 0;
-    border-radius: 9999px;
-    background: var(--line-control);
-    transition: background-color 120ms ease;
-  }
-  .switch:hover:not(:disabled) { background: var(--muted); border: 0; }
-  .switch::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: #ffffff;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-    transition: transform 120ms ease;
-  }
-  .switch[aria-checked='true'],
-  .switch[aria-checked='true']:hover:not(:disabled) { background: var(--coral); }
-  .switch[aria-checked='true']::after { transform: translateX(18px); }
-
   @media (max-width: 480px) {
     .custom-paper { grid-template-columns: 1fr 1fr; }
     .custom-paper .units { grid-column: 1 / -1; justify-self: start; }

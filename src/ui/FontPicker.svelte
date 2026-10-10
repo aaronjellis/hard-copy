@@ -5,6 +5,7 @@
   import { getGoogleFontsApiKey, loadGoogleCatalogOnce, type GoogleFont } from '../lib/fonts/google';
   import { isLocalFontsSupported, loadLocalFontsOnce, type LocalFont } from '../lib/fonts/local';
   import { loadFontBytes } from '../lib/fonts/loader';
+  import { ensurePreview, previewFamily } from '../lib/fonts/preview';
   import { fontLabel, fontRefKey, STANDARD_FONTS, type FontRef } from '../lib/fonts/types';
   import Type from '@lucide/svelte/icons/type';
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
@@ -66,6 +67,15 @@
     const matches = q === '' ? googleFonts : googleFonts.filter((f) => f.family.toLowerCase().includes(q));
     return matches.slice(0, MAX_GOOGLE_RESULTS);
   });
+
+  // Show the selected font's name in its typeface on the trigger.
+  $effect(() => ensurePreview(value));
+
+  /** Action for a font option: start loading its preview face once it renders. */
+  function preview(_node: HTMLElement, ref: FontRef) {
+    ensurePreview(ref);
+    return { update: (next: FontRef) => ensurePreview(next) };
+  }
 
   function isCurrent(ref: FontRef): boolean {
     return fontRefKey(ref) === fontRefKey(value);
@@ -171,7 +181,7 @@
     aria-expanded={open} aria-controls="{id}-panel" aria-labelledby="{id}-label {id}-value"
     title={compact ? label : undefined} onclick={toggle}>
     {#if compact}<Type size={16} aria-hidden="true" />{/if}
-    <span class="value" id="{id}-value">{fontLabel(value)}</span>
+    <span class="value font-name" id="{id}-value" style:font-family={previewFamily(value)}>{fontLabel(value)}</span>
     <span class="caret" class:open>
       {#if compact && pending}<LoaderCircle class="spin" size={16} aria-hidden="true" />{:else}<ChevronDown size={compact ? 16 : 20} aria-hidden="true" />{/if}
     </span>
@@ -194,7 +204,7 @@
           {#each STANDARD_FONTS as f (f.id)}
             {@const ref: FontRef = { kind: 'standard', id: f.id }}
             <li><button type="button" aria-current={isCurrent(ref)} aria-disabled={pending !== null}
-              onclick={() => select(ref)}><span>{f.label}</span>{#if isCurrent(ref)}<Check class="check" size={18} aria-hidden="true" />{/if}</button></li>
+              onclick={() => select(ref)}><span class="font-name" style:font-family={previewFamily(ref)} use:preview={ref}>{f.label}</span>{#if isCurrent(ref)}<Check class="check" size={18} aria-hidden="true" />{/if}</button></li>
           {/each}
         </ul>
       </section>
@@ -207,7 +217,7 @@
             {#each g.fonts as f (f.id)}
               {@const ref = bundledFontRef(f)}
               <li><button type="button" aria-current={isCurrent(ref)} aria-disabled={pending !== null}
-                onclick={() => select(ref)}><span>{f.family}</span>{#if isCurrent(ref)}<Check class="check" size={18} aria-hidden="true" />{/if}</button></li>
+                onclick={() => select(ref)}><span class="font-name" style:font-family={previewFamily(ref)} use:preview={ref}>{f.family}</span>{#if isCurrent(ref)}<Check class="check" size={18} aria-hidden="true" />{/if}</button></li>
             {/each}
           </ul>
         {/each}
@@ -235,7 +245,7 @@
                 {#each googleMatches as f (f.family)}
                   {@const ref: FontRef = { kind: 'google', family: f.family }}
                   <li><button type="button" aria-current={isCurrent(ref)} aria-disabled={pending !== null}
-                    onclick={() => select(ref)}><span>{f.family}</span>{#if isCurrent(ref)}<Check class="check" size={18} aria-hidden="true" />{/if}</button></li>
+                    onclick={() => select(ref)}><span class="font-name" style:font-family={previewFamily(ref)} use:preview={ref}>{f.family}</span>{#if isCurrent(ref)}<Check class="check" size={18} aria-hidden="true" />{/if}</button></li>
                 {/each}
               </ul>
             {/if}
@@ -259,7 +269,7 @@
               {#each localFonts as f (f.postscriptName)}
                 {@const ref: FontRef = { kind: 'local', postscriptName: f.postscriptName, family: f.family }}
                 <li><button type="button" aria-current={isCurrent(ref)} aria-disabled={pending !== null}
-                  onclick={() => select(ref)}><span>{f.family}</span>{#if isCurrent(ref)}<Check class="check" size={18} aria-hidden="true" />{/if}</button></li>
+                  onclick={() => select(ref)}><span class="font-name" style:font-family={previewFamily(ref)} use:preview={ref}>{f.family}</span>{#if isCurrent(ref)}<Check class="check" size={18} aria-hidden="true" />{/if}</button></li>
               {/each}
             </ul>
           {/if}
@@ -332,6 +342,8 @@
   li button:hover:not([aria-disabled='true']) { border-color: transparent; background: var(--hover); }
   li button[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
   li button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Font names render in their own typeface; never fake a bold or italic the font lacks. */
+  .font-name { font-synthesis: none; }
   li button :global(.check) { margin-left: auto; color: var(--coral-icon); }
   li button[aria-current='true'],
   li button[aria-current='true']:hover:not([aria-disabled='true']) {
