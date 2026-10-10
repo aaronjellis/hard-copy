@@ -1,0 +1,330 @@
+/*
+ * Hard Copy (spreadsheet printer) — warm, friendly product UI (Airbnb-inspired).
+ * Shares its design system with Letter Rip.
+ * Clash Display for the wordmark and card titles, Satoshi for everything else,
+ * warm neutrals, rounded cards, Lucide icons, a coral pill for the one primary action.
+ */
+
+/*
+ * Interface typefaces only (Fontshare, ITF Free Font License; see public/fonts/README.md).
+ * Never embedded in printed PDFs and never offered in the font picker.
+ * Both are variable fonts, so every weight used here is a real face, not synthesized.
+ */
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/ui/clash-display/ClashDisplay-Variable.woff2') format('woff2');
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/ui/satoshi/Satoshi-Variable.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-ui: 'Satoshi', system-ui, sans-serif;
+  /* Wordmark and card titles only. */
+  --font-display: 'Clash Display', 'Satoshi', system-ui, sans-serif;
+
+  --bg: #f7f7f7;
+  --surface: #ffffff;
+  --field: #ffffff;
+  --text: #222222;
+  --text-soft: #3f3f3f;
+  --muted: #6a6a6a;
+  --hairline: rgba(0, 0, 0, 0.08);
+  --divider: #dddddd;
+  /* Field and control outlines stay at 3:1 against their surface. */
+  --line-control: #8c8c8c;
+  --hover: #f7f7f7;
+  --subtle: #f2f2f2;
+  /* Inverted chip: near-black fill with white text. */
+  --ink: #222222;
+  --ink-text: #ffffff;
+
+  /* Coral is reserved for the primary button, the checkbox, and the current font. */
+  --coral: #e61e4d;
+  --coral-hover: #d0164a;
+  --coral-text: #ffffff;
+  --coral-wash: #fff0f3;
+  /* Coral for decorative icons (lifted in dark mode). */
+  --coral-icon: #e61e4d;
+  --danger: #c13515;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-float: 0 6px 16px rgba(0, 0, 0, 0.12);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #121212;
+  --surface: #1c1c1e;
+  --field: #1c1c1e;
+  --text: #f5f3f0;
+  --text-soft: #dedbd6;
+  --muted: #a8a6a2;
+  --hairline: rgba(255, 255, 255, 0.09);
+  --divider: #2f2f31;
+  --line-control: #77746f;
+  --hover: #252527;
+  --subtle: #161618;
+  --ink: #f5f3f0;
+  --ink-text: #1c1c1e;
+
+  --coral: #e61e4d;
+  --coral-hover: #d0164a;
+  --coral-text: #ffffff;
+  --coral-wash: #3a1f26;
+  --coral-icon: #ff7a93;
+  --danger: #ff8a75;
+
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-float: 0 6px 16px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body {
+  font: 15px/1.5 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+main { max-width: 1200px; margin: 0 auto; padding: 32px 32px 56px; }
+
+h1, h2, h3, h4, h5 { font-weight: 600; }
+/* The wordmark (h1) and card titles (h2) are set in Clash Display. */
+h1, h2 { font-family: var(--font-display); letter-spacing: -0.01em; }
+h2 { font-weight: 500; }
+/* Never let the browser fake a bold or italic the shipped faces don't have. */
+body { font-synthesis: none; }
+
+/* Lucide icons: one stroke weight everywhere; color follows the text. */
+.lucide { flex: none; stroke-width: 1.75; }
+
+/* A card title: Clash Display, with a muted Lucide icon before it. */
+.title-line { display: flex; align-items: center; gap: 10px; margin: 0; }
+.title-line > .lucide { color: var(--muted); }
+.card-title { margin: 0; font-family: var(--font-display); font-size: 20px; font-weight: 500; letter-spacing: -0.01em; line-height: 1.3; color: var(--text); }
+
+/* Status lines with a leading icon. */
+.status-line { display: flex; align-items: flex-start; gap: 8px; }
+.status-line .lucide { margin-top: 1px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
+
+/* ---------- Form controls ---------- */
+
+button, select, input, textarea { font: inherit; color: var(--text); }
+
+input:not([type='checkbox']):not([type='radio']), select, textarea {
+  min-height: 48px;
+  padding: 12px 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  background: var(--field);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+textarea { resize: vertical; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+input:not([type='checkbox']):not([type='radio']):hover:not(:disabled),
+select:hover:not(:disabled), textarea:hover:not(:disabled) { border-color: var(--text); }
+/* Focus: the outline thickens to 2px in the text color, no glow. */
+input:not([type='checkbox']):not([type='radio']):focus, select:focus, textarea:focus {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+select {
+  appearance: none;
+  padding-right: 40px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text) 50%),
+    linear-gradient(135deg, var(--text) 50%, transparent 50%);
+  background-position: calc(100% - 22px) 52%, calc(100% - 17px) 52%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--coral);
+  cursor: pointer;
+}
+
+/* Default button: a quiet outlined pill. */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  background: var(--surface);
+  border: 1px solid var(--line-control);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+button:hover:not(:disabled) { background: var(--hover); border-color: var(--text); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Print and Download pair (the class is shared by a link that acts as a button). */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: 9999px;
+  font: 600 16px/1.2 var(--font-ui);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+button.primary, .btn-primary {
+  background: var(--coral);
+  color: var(--coral-text);
+  border: 1px solid var(--coral);
+}
+button.primary:hover:not(:disabled), .btn-primary:hover:not(:disabled) {
+  background: var(--coral-hover);
+  border-color: var(--coral-hover);
+}
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--text);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--hover); border-color: var(--text); }
+button.btn:disabled { opacity: 1; cursor: not-allowed; color: var(--muted); }
+button.btn-primary:disabled { background: var(--divider); border-color: var(--divider); }
+button.btn-secondary:disabled { background: var(--surface); border-color: var(--divider); }
+
+/* One calm focus treatment across every control: the text color, not the coral. */
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: var(--text); }
+
+.muted { color: var(--muted); }
+.error { color: var(--danger); }
+
+/* Visually hidden but still read by screen readers. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* A row of toggle chips in a pill track; the pressed one is inverted. */
+.segmented {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--subtle);
+  border: 1px solid var(--line-control);
+  border-radius: 9999px;
+}
+.segmented button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+}
+.segmented button:hover:not(:disabled) { background: var(--hover); }
+.segmented button[aria-pressed='true'],
+.segmented button[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--ink-text);
+}
+
+/*
+ * Formatting toolbar on top of an editing area (AddressEditor.svelte): a row of compact pill
+ * controls that wraps on narrow cards. It is positioned so popovers (the font panel) can span it.
+ */
+.toolbar {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--divider);
+}
+/* A button group inside a toolbar: the segmented track with square icon buttons. */
+.toolbar .segmented { gap: 2px; padding: 2px; }
+.toolbar .segmented button { min-height: 32px; }
+.toolbar .segmented .icon-only { width: 32px; padding: 0; }
+.toolbar button[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; }
+.toolbar .segmented button[aria-disabled='true']:hover { background: transparent; }
+
+/* ---------- First-load motion ---------- */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.rise { animation: rise 280ms var(--ease) backwards; animation-delay: calc(var(--i, 0) * 50ms); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; }
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
+}
+
+@media (max-width: 759px) {
+  main { padding: 20px 16px 40px; }
+}
+
+/* Scroll lock while a modal dialog is open (AboutDialog.svelte, ListDialog.svelte). */
+html.dialog-open { overflow: hidden; }
+
+/* Cross-promo card in the footer (shared between Letter Rip and Hard Copy). */
+.promo-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+  padding: 12px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 120ms ease, transform 120ms ease;
+}
+.promo-card:hover { box-shadow: var(--shadow-card-hover); }
+.promo-card:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.promo-icon { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: var(--subtle); color: var(--muted); }
+.promo-text { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.promo-title { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.promo-sub { font-size: 14px; line-height: 1.3; color: var(--muted); }
+.promo-card .promo-arrow { flex: none; color: var(--muted); }

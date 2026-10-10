@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hard Copy · Print spreadsheets from your browser</title>
+    <meta name="description" content="Free spreadsheet printer that runs in your browser. Paste or import a sheet, set pages, columns, and headers, see every page before you print." />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="%VITE_SITE_URL%" />
+    <meta name="theme-color" content="#f7f7f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Hard Copy" />
+    <meta property="og:title" content="Hard Copy · Print spreadsheets from your browser" />
+    <meta property="og:description" content="Free spreadsheet printer that runs in your browser. Paste or import a sheet, set pages, columns, and headers, see every page before you print." />
+    <meta property="og:url" content="%VITE_SITE_URL%" />
+    <meta property="og:image" content="%VITE_SITE_URL%og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Hard Copy monogram and wordmark: free, runs in your browser." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Hard Copy · Print spreadsheets from your browser" />
+    <meta name="twitter:description" content="Free spreadsheet printer that runs in your browser. Paste or import a sheet, set pages, columns, and headers, see every page before you print." />
+    <meta name="twitter:url" content="%VITE_SITE_URL%" />
+    <meta name="twitter:image" content="%VITE_SITE_URL%og.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "url": "%VITE_SITE_URL%",
+        "name": "Hard Copy",
+        "description": "Free spreadsheet printer that runs in your browser. Paste or import a sheet, set pages, columns, and headers, see every page before you print.",
+        "applicationCategory": "UtilityApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": [
+          "Print spreadsheets from the browser with nothing to install",
+          "Paste cells or import CSV, TSV, and Excel files",
+          "Paper size, orientation, margins, scale to fit, and repeated header rows",
+          "Choose, order, and size the columns to print",
+          "Table styling: font, header and lead column colors, zebra stripes",
+          "Headers and footers with title, date, and page X of Y",
+          "True page-by-page preview, then print or download a PDF",
+          "Setup export and import",
+          "Runs entirely on the device; nothing is uploaded"
+        ]
+      }
+    </script>
+    <script>
+      // Apply theme before first paint to avoid a flash.
+      try {
+        var p = JSON.parse(localStorage.getItem('hardcopy.profile') || '{}').theme || 'system';
+        var dark = p === 'dark' || (p === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

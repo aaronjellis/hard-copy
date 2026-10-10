@@ -1,0 +1,15 @@
+node_modules/
+dist/
+_bmad
+.DS_Store
+docs/screenshots/
+.env
+.env.local
+# UI fonts are fetched from Fontshare by scripts/fetch-ui-fonts.mjs (license forbids redistribution)
+public/fonts/ui/**/*.woff2
+public/fonts/ui/**/*.woff
+public/fonts/ui/**/*.ttf
+
+# Local planning docs and editor tooling, not for the public repo
+docs/superpowers/
+.claude/
