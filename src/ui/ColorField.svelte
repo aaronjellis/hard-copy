@@ -6,17 +6,22 @@
    * label with the hex value as a caption, and a small × to clear when the setting can be empty.
    * Values are `#rrggbb` in lowercase; null means no color.
    */
-  let { value, nullable = false, label, onchange }: {
+  let { value, nullable = false, label, start = '#fefefe', onchange }: {
     value: string | null;
     nullable?: boolean;
     label: string;
+    /**
+     * What the system picker starts from when there is no color yet. The native input only fires
+     * `input` when the value changes, so the default is a near-white nobody picks on purpose: choosing
+     * pure white right after a clear still registers. Text colors pass black.
+     */
+    start?: string;
     onchange: (v: string | null) => void;
   } = $props();
 
   const id = $props.id();
   const HEX = /^#[0-9a-f]{6}$/i;
-  /** What the system picker starts from when there is no color yet. */
-  const EMPTY_START = '#ffffff';
+  let input = $state<HTMLInputElement>();
 
   function oninput(e: Event) {
     const v = (e.currentTarget as HTMLInputElement).value.toLowerCase();
@@ -26,14 +31,14 @@
 
 <div class="color-field">
   <span class="swatch" class:empty={value === null} style:--swatch={value ?? 'transparent'}>
-    <input id="{id}-input" type="color" value={value ?? EMPTY_START} aria-describedby="{id}-value" {oninput} />
+    <input bind:this={input} id="{id}-input" type="color" value={value ?? start} aria-describedby="{id}-value" {oninput} />
   </span>
   <span class="text">
     <label for="{id}-input" class="name">{label}</label>
     <span id="{id}-value" class="value muted">{value ?? 'None'}</span>
   </span>
   {#if nullable && value !== null}
-    <button type="button" class="clear" aria-label="Clear {label.toLowerCase()} color" onclick={() => onchange(null)}>
+    <button type="button" class="clear" aria-label="Clear {label.toLowerCase()} color" onclick={() => { onchange(null); input?.focus(); }}>
       <X size={14} aria-hidden="true" />
     </button>
   {/if}

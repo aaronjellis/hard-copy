@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  defaultSetup, defaultColumnSetup, parseSetup, reconcileColumns, SETUP_LIMITS,
+  clampStep, defaultSetup, defaultColumnSetup, parseSetup, reconcileColumns, SETUP_LIMITS,
   type Setup,
 } from '../../src/lib/setup/setup';
 
@@ -372,5 +372,19 @@ describe('reconcileColumns', () => {
 
   it('ignores duplicate dataset ids', () => {
     expect(reconcileColumns(defaultSetup(), cols('c0', 'c0', 'c1')).columns.order).toEqual(['c0', 'c1']);
+  });
+});
+
+describe('clampStep', () => {
+  it('clamps to the range and rounds to the step', () => {
+    expect(clampStep(11.3, [6, 24], 0.5, 10)).toBe(11.5);
+    expect(clampStep(40, [6, 24], 0.5, 10)).toBe(24);
+    expect(clampStep(-3, [6, 24], 0.5, 10)).toBe(6);
+    expect(clampStep(7.6, [1, 20], 1, 1)).toBe(8);
+  });
+
+  it('falls back when the value is not a finite number', () => {
+    expect(clampStep(Number.NaN, [6, 24], 0.5, 10)).toBe(10);
+    expect(clampStep(Number.POSITIVE_INFINITY, [6, 24], 0.5, 10)).toBe(10);
   });
 });

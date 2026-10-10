@@ -68,7 +68,7 @@
       <button type="button" class="about-btn" aria-label="About" onclick={openAbout}>
         <Info size={18} aria-hidden="true" /><span class="label">About</span>
       </button>
-      <SettingsBackup {profile} onimport={(p) => (profile = p)} />
+      <SettingsBackup {profile} onimport={(p) => (profile = dataset ? { ...p, setup: reconcileColumns(p.setup, dataset.columns) } : p)} />
       <ThemeToggle pref={profile.theme} onchange={(t) => (profile = { ...profile, theme: t })} />
     </div>
   </header>

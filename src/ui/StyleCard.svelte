@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { SETUP_LIMITS, type Borders, type CellPadding, type Setup, type StyleSetup } from '../lib/setup/setup';
+  import { SETUP_LIMITS, clampStep, type Borders, type CellPadding, type Setup, type StyleSetup } from '../lib/setup/setup';
   import { styleSummary } from '../lib/setup/summary';
   import SetupCard from './SetupCard.svelte';
   import FontPicker from './FontPicker.svelte';
@@ -29,8 +29,7 @@
   function onSize(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
     const raw = input.valueAsNumber;
-    const [min, max] = SETUP_LIMITS.bodySizePt;
-    const next = Number.isFinite(raw) ? Math.round(Math.min(max, Math.max(min, raw)) * 2) / 2 : style.bodySize;
+    const next = clampStep(raw, SETUP_LIMITS.bodySizePt, 0.5, style.bodySize);
     input.value = String(next);
     if (next !== style.bodySize) set({ bodySize: next });
   }
@@ -63,7 +62,7 @@
     <div class="colors">
       <ColorField label="Fill" nullable value={style.header.fill}
         onchange={(fill) => set({ header: { ...style.header, fill } })} />
-      <ColorField label="Text" nullable value={style.header.color}
+      <ColorField label="Text" nullable start="#000000" value={style.header.color}
         onchange={(color) => set({ header: { ...style.header, color } })} />
     </div>
   </div>
@@ -82,11 +81,11 @@
   </div>
 
   <div class="sub" role="group" aria-labelledby="{id}-zebra">
-    <span class="toggle">
+    <div class="toggle">
       <h3 id="{id}-zebra" class="sub-title">Zebra stripes</h3>
       <button type="button" class="switch" role="switch" aria-checked={style.zebra.on} aria-labelledby="{id}-zebra"
         onclick={() => set({ zebra: { ...style.zebra, on: !style.zebra.on } })}></button>
-    </span>
+    </div>
     {#if style.zebra.on}
       <div class="colors">
         <ColorField label="Stripe" value={style.zebra.color}

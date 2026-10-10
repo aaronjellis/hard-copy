@@ -1,6 +1,6 @@
 <script lang="ts">
   import { SLOT_KINDS, SLOT_LABELS, type Slot, type SlotKind } from '../lib/setup/hf';
-  import { SETUP_LIMITS, type HeaderFooterSetup, type Setup } from '../lib/setup/setup';
+  import { SETUP_LIMITS, clampStep, type HeaderFooterSetup, type Setup } from '../lib/setup/setup';
   import { headerFooterSummary } from '../lib/setup/summary';
   import SetupCard from './SetupCard.svelte';
   import PanelTop from '@lucide/svelte/icons/panel-top';
@@ -34,8 +34,7 @@
   function onSize(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
     const raw = input.valueAsNumber;
-    const [min, max] = SETUP_LIMITS.hfSizePt;
-    const next = Number.isFinite(raw) ? Math.round(Math.min(max, Math.max(min, raw)) * 2) / 2 : hf.size;
+    const next = clampStep(raw, SETUP_LIMITS.hfSizePt, 0.5, hf.size);
     input.value = String(next);
     if (next !== hf.size) set({ size: next });
   }

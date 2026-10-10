@@ -67,6 +67,16 @@ export type Setup = {
   hf: HeaderFooterSetup;
 };
 
+/**
+ * A number field's committed value: `raw` clamped to `range` and rounded to the nearest `step`;
+ * `fallback` when `raw` is not a finite number (an emptied field).
+ */
+export function clampStep(raw: number, [min, max]: readonly [number, number], step: number, fallback: number): number {
+  if (!Number.isFinite(raw)) return fallback;
+  const clamped = Math.min(max, Math.max(min, raw));
+  return Math.round(clamped / step) * step;
+}
+
 /** Inclusive [min, max] ranges for numeric fields, plus text caps. Inches unless noted. */
 export const SETUP_LIMITS = Object.freeze({
   customPaperIn: [CUSTOM_PAPER_MIN_IN, CUSTOM_PAPER_MAX_IN] as const,
