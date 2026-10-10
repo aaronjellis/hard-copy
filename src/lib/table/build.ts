@@ -64,7 +64,9 @@ export async function buildTablePdf(input: BuildInput, fonts: FontProvider): Pro
     },
   });
 
-  const repeatLead = style.leadColumn.fill !== null || style.leadColumn.bold;
+  // The lead column is the first column printed on band 0. Later bands show it only when it repeats and fits,
+  // so every page matches columns against this id instead of assuming position.
+  const leadId = layout.pages.find((p) => p.band === 0 && p.columns.length > 0)?.columns[0].id ?? null;
   const headerColor = style.header.color ? hexToRgb(style.header.color) : BLACK;
   const bandColor = hexToRgb(BAND_GRAY);
   const warnings: TablePdf['warnings'] = [];
@@ -79,11 +81,9 @@ export async function buildTablePdf(input: BuildInput, fonts: FontProvider): Pro
       page.drawText(s.text, { x: at(font.widthOfTextAtSize(s.text, size)), y, size, font, color });
     };
 
-    // The lead column is the page's first column on band 0, and on every band when it repeats.
-    const leadOnPage = p.columns.length > 0 && (p.band === 0 || repeatLead);
     const placed = p.header ? [p.header, ...p.rows] : p.rows;
 
-    page.pushOperators(...fills(p, leadOnPage, setup.style));
+    page.pushOperators(...fills(p, leadId, setup.style));
     if (setup.page.gridlines && style.borders !== 'none') page.pushOperators(...grid(p, placed, hexToRgb(style.borderColor)));
 
     // Cell text.
@@ -92,7 +92,7 @@ export async function buildTablePdf(input: BuildInput, fonts: FontProvider): Pro
     for (const row of placed) {
       const isHeader = row.index === -1;
       row.cells.forEach((cell, k) => {
-        const isBold = isHeader ? style.header.bold : leadOnPage && k === 0 && style.leadColumn.bold;
+        const isBold = isHeader ? style.header.bold : p.columns[k]?.id === leadId && style.leadColumn.bold;
         const font = faceFor(isBold);
         const color = isHeader ? headerColor : BLACK;
         const blockTop = row.y + (row.height + cell.lines.length * lineH) / 2;
@@ -113,6 +113,7 @@ export async function buildTablePdf(input: BuildInput, fonts: FontProvider): Pro
       (w: number) => right - w,
     ];
     const band = (text: [string, string, string], bottom: number) => {
+      if (text.every((t) => t === '')) return;
       const y = baseline(regular, hf.size, bottom + bands.bandSize, bands.bandSize);
       text.forEach((t, i) => draw(t, regular, hf.size, slotX[i], y, bandColor));
     };
@@ -145,7 +146,7 @@ function sheetText(input: BuildInput): string {
 }
 
 /** Background fills: header row, zebra stripes on every second data row of the page, lead column. */
-function fills(p: Page, leadOnPage: boolean, style: BuildInput['setup']['style']): PDFOperator[] {
+function fills(p: Page, leadId: string | null, style: BuildInput['setup']['style']): PDFOperator[] {
   const ops: PDFOperator[] = [];
   const rect = (x: number, y: number, w: number, h: number, color: string) =>
     ops.push(setFillingColor(hexToRgb(color)), rectangle(x, y, w, h), fill());
@@ -161,8 +162,9 @@ function fills(p: Page, leadOnPage: boolean, style: BuildInput['setup']['style']
     });
   }
   const leadFill = style.leadColumn.fill;
-  if (leadOnPage && leadFill) {
-    for (const row of p.header ? [p.header, ...p.rows] : p.rows) rect(first.x, row.y, first.width, row.height, leadFill);
+  const lead = leadId === null ? undefined : p.columns.find((c) => c.id === leadId);
+  if (lead && leadFill) {
+    for (const row of p.header ? [p.header, ...p.rows] : p.rows) rect(lead.x, row.y, lead.width, row.height, leadFill);
   }
   return ops.length > 0 ? [pushGraphicsState(), ...ops, popGraphicsState()] : ops;
 }

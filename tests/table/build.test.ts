@@ -251,6 +251,22 @@ describe('buildTablePdf: style', () => {
     expect(baseFonts(doc)).toEqual(['/Helvetica', '/Helvetica-Bold']);
   });
 
+  it('fills the lead column by id, not on a band that starts without it', async () => {
+    // Fixed 3 in columns are 324 pt at 150%: the lead plus any other column exceeds the 504 pt printable
+    // width, so bands 1 and 2 start without c0. Only the band-0 page may carry the lead fill.
+    const { doc, pdf } = await build(input((s) => {
+      s.page.scale = { mode: 'percent', value: 150 };
+      s.style.header.bold = false;
+      s.style.leadColumn = { bold: false, fill: '#0000ff' };
+      for (const id of s.columns.order) s.columns.byId[id].width = { mode: 'fixed', inches: 3 };
+    }, [['1', '2', '3']]));
+    expect(pdf.pageCount).toBe(3);
+    const lead = /0 0 1 rg\s+[\d. -]+ re\s+f\b/g;
+    expect(count(content(doc, 0), lead)).toBe(2); // header row + one data row
+    expect(count(content(doc, 1), lead)).toBe(0);
+    expect(count(content(doc, 2), lead)).toBe(0);
+  });
+
   it('draws gridlines as 0.5 pt strokes in the border color', async () => {
     const { doc } = await build(input((s) => {
       s.page.gridlines = true;
