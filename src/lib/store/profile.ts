@@ -1,28 +1,22 @@
+import { defaultSetup, parseSetup, type Setup } from '../setup/setup';
+
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 export const PROFILE_VERSION = 1;
 
-/** Settings kept on this device and in exported setup files. Print settings join in a later version. */
+/** Settings kept on this device and in exported setup files: the print setup and the theme. */
 export type Profile = {
   version: typeof PROFILE_VERSION;
+  setup: Setup;
   theme: ThemePreference;
 };
 
 export const PROFILE_KEY = 'hardcopy.profile';
 
-export const FONT_SIZE_MIN = 6;
-export const FONT_SIZE_MAX = 72;
-
 const NOT_A_SETUP_FILE = 'That is not a setup file exported by Hard Copy.';
 
-/** Clamp a font size into [FONT_SIZE_MIN, FONT_SIZE_MAX]; non-finite or non-number values yield `fallback`. */
-export function clampFontSize(value: unknown, fallback: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
-  return Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, value));
-}
-
 export function defaultProfile(): Profile {
-  return { version: PROFILE_VERSION, theme: 'system' };
+  return { version: PROFILE_VERSION, setup: defaultSetup(), theme: 'system' };
 }
 
 export function loadProfile(storage?: Storage): Profile {
@@ -61,13 +55,21 @@ export function parseProfile(text: string): Profile {
     throw new Error(NOT_A_SETUP_FILE);
   }
   if (!isObj(data)) throw new Error(NOT_A_SETUP_FILE);
-  if (data.version !== PROFILE_VERSION) {
-    throw new Error(`Unsupported setup file version: ${String(data.version)}`);
+  const version = own(data, 'version');
+  if (version !== PROFILE_VERSION) {
+    throw new Error(`Unsupported setup file version: ${String(version)}`);
   }
+  const theme = own(data, 'theme');
   return {
     version: PROFILE_VERSION,
-    theme: data.theme === 'light' || data.theme === 'dark' ? data.theme : 'system',
+    setup: parseSetup(own(data, 'setup')),
+    theme: theme === 'light' || theme === 'dark' ? theme : 'system',
   };
+}
+
+/** An own property only, so inherited members never leak in. */
+function own(o: Record<string, unknown>, key: string): unknown {
+  return Object.hasOwn(o, key) ? o[key] : undefined;
 }
 
 function isObj(v: unknown): v is Record<string, unknown> {

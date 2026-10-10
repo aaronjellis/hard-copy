@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   defaultProfile, loadProfile, saveProfile, serializeProfile, parseProfile, PROFILE_KEY,
-  clampFontSize, FONT_SIZE_MIN, FONT_SIZE_MAX,
   type Profile,
 } from '../../src/lib/store/profile';
+import { defaultSetup } from '../../src/lib/setup/setup';
 
 function memoryStorage(): Storage {
   const m = new Map<string, string>();
@@ -25,12 +25,16 @@ describe('profile store', () => {
   it('loads defaults when nothing is stored', () => {
     const p = loadProfile(memoryStorage());
     expect(p).toEqual(defaultProfile());
-    expect(p).toEqual({ version: 1, theme: 'system' });
+    expect(p).toEqual({ version: 1, setup: defaultSetup(), theme: 'system' });
   });
 
   it('round-trips through save and load', () => {
     const s = memoryStorage();
-    const p: Profile = { ...defaultProfile(), theme: 'dark' };
+    const setup = defaultSetup();
+    setup.page.paper = 'a4';
+    setup.style.bodySize = 12;
+    setup.hf.title = 'Roster';
+    const p: Profile = { ...defaultProfile(), setup, theme: 'dark' };
     saveProfile(p, s);
     expect(s.getItem(PROFILE_KEY)).not.toBeNull();
     expect(loadProfile(s)).toEqual(p);
@@ -65,7 +69,31 @@ describe('profile store', () => {
   });
 
   it('drops unknown fields', () => {
-    expect(parseProfile(JSON.stringify({ version: 1, theme: 'dark', extra: true }))).toEqual({ version: 1, theme: 'dark' });
+    expect(parseProfile(JSON.stringify({ version: 1, theme: 'dark', extra: true }))).toEqual({ version: 1, setup: defaultSetup(), theme: 'dark' });
+  });
+
+  it('uses the default setup when the setup is missing or not an object', () => {
+    expect(parseProfile(JSON.stringify({ version: 1, theme: 'dark' })).setup).toEqual(defaultSetup());
+    expect(parseProfile(JSON.stringify({ version: 1, setup: 'letter' })).setup).toEqual(defaultSetup());
+    expect(parseProfile(JSON.stringify({ version: 1, setup: [] })).setup).toEqual(defaultSetup());
+  });
+
+  it('replaces invalid setup fields individually', () => {
+    const p = parseProfile(JSON.stringify({
+      version: 1,
+      setup: { page: { paper: 'a3', landscape: 'no' }, style: { bodySize: 500, borderColor: 'blue' }, hf: { size: 12 } },
+    }));
+    expect(p.setup.page.paper).toBe('a3');
+    expect(p.setup.page.landscape).toBe(false);
+    expect(p.setup.style.bodySize).toBe(24);
+    expect(p.setup.style.borderColor).toBe('#d0d0d0');
+    expect(p.setup.hf.size).toBe(12);
+  });
+
+  it('ignores prototype keys in a hostile file', () => {
+    const p = parseProfile('{"version":1,"__proto__":{"theme":"dark"},"setup":{"__proto__":{"page":{"paper":"a4"}}}}');
+    expect(p).toEqual(defaultProfile());
+    expect(({} as Record<string, unknown>).theme).toBeUndefined();
   });
 
   it('rejects files with the wrong version or shape', () => {
@@ -75,14 +103,6 @@ describe('profile store', () => {
     expect(() => parseProfile('[]')).toThrow(/setup file/i);
     expect(() => parseProfile('null')).toThrow(/setup file/i);
     expect(() => parseProfile('nope')).toThrow(/setup file/i);
-  });
-
-  it('clamps font sizes into the supported range', () => {
-    expect(clampFontSize(NaN, 12)).toBe(12);
-    expect(clampFontSize('14', 12)).toBe(12);
-    expect(clampFontSize(1, 12)).toBe(FONT_SIZE_MIN);
-    expect(clampFontSize(400, 12)).toBe(FONT_SIZE_MAX);
-    expect(clampFontSize(18, 12)).toBe(18);
   });
 
   it('returns defaults when reading storage throws', () => {
