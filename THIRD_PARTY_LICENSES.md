@@ -13,7 +13,7 @@ These packages are bundled into the built site. Svelte is a build tool, but its 
 | [pdfjs-dist](https://www.npmjs.com/package/pdfjs-dist) | 6.4.299 | Apache License 2.0 | [mozilla/pdf.js](https://github.com/mozilla/pdf.js) |
 | [idb-keyval](https://www.npmjs.com/package/idb-keyval) | 6.3.0 | Apache License 2.0 | [jakearchibald/idb-keyval](https://github.com/jakearchibald/idb-keyval) |
 | [xlsx](https://cdn.sheetjs.com/) (SheetJS Community Edition) | 0.20.3 | Apache License 2.0 | [SheetJS/sheetjs](https://git.sheetjs.com/sheetjs/sheetjs) |
-| [@lucide/svelte](https://www.npmjs.com/package/@lucide/svelte) | 1.54.0 | ISC License (some icons MIT, from Feather) | [lucide-icons/lucide](https://github.com/lucide-icons/lucide) |
+| [@lucide/svelte](https://www.npmjs.com/package/@lucide/svelte) | 1.55.0 | ISC License (some icons MIT, from Feather) | [lucide-icons/lucide](https://github.com/lucide-icons/lucide) |
 | [svelte](https://www.npmjs.com/package/svelte) (runtime) | 5 | MIT License | [sveltejs/svelte](https://github.com/sveltejs/svelte) |
 
 ### pdf-lib

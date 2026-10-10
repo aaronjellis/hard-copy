@@ -51,16 +51,18 @@
       every page exactly as it will print.
     </p>
     <p>
-      Choose the paper size, orientation, and margins, scale the table to fit the page width, and
-      repeat the header row on every page. Pick which columns print and how wide each one is. Style
-      the table with a font, a header row color, a lead column color, and zebra stripes, and add a
-      header and footer with a title, the date, and page numbers.
+      Print on Letter, Legal, Tabloid, A4, A3, or a custom paper size, with margins in inches or
+      millimeters. Fit the table to the page width, fit it to a number of pages, or set a scale, and
+      repeat the header row on every page. Pick which columns print, put them in order, and set each
+      one's width, alignment, and wrapping. Style the table with a font, header row and lead column
+      colors, zebra stripes, and borders, and add a header and footer with a title, the date, and page
+      numbers.
     </p>
     <p>
       Everything runs on your device and nothing is uploaded, so it works on managed Chromebooks and
-      other locked-down computers. Font previews for Google Fonts search results are fetched from
-      Google. Export your setup to a file and import it on another computer to pick up where you left
-      off.
+      other locked-down computers. It prints from phones and tablets too. Font previews for Google
+      Fonts search results are fetched from Google. Export your setup to a file and import it on
+      another computer to pick up where you left off.
     </p>
     <p>
       It is free and open source. The code is on
@@ -68,6 +70,10 @@
       Hard Copy is MIT licensed. Fonts and libraries are credited in the
       <a href="https://github.com/aaronjellis/hard-copy/blob/main/THIRD_PARTY_LICENSES.md">third-party licenses</a>
       file.
+    </p>
+    <p>
+      To print envelopes, try <a href="https://labs.aaronjellis.com/letter-rip/">Letter Rip</a>, the
+      sibling tool from the same maker.
     </p>
 
     <h2>How to print a spreadsheet</h2>

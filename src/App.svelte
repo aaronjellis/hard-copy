@@ -55,9 +55,9 @@
       <!-- Placeholder monogram: a printed sheet with a coral header row. -->
       <svg class="monogram" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linejoin="round" aria-hidden="true">
-        <rect x="8" y="4" width="28" height="36" rx="3" />
-        <path class="accent" d="M13 12h18" />
-        <path d="M13 19h18M13 25h18M13 31h18M20 16v18" />
+        <rect x="9" y="5" width="26" height="34" rx="3" />
+        <path class="accent" d="M14 12.5h16" />
+        <path d="M14 20h5M22 20h8M14 26h5M22 26h8M14 32h5M22 32h8" />
       </svg>
       <div class="brand-text">
         <h1>Hard Copy</h1>

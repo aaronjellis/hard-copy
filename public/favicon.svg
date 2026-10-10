@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="2 3 40 40" fill="none" stroke-width="2.5" stroke-linejoin="round">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="3 3 38 38" fill="none" stroke-width="2.5" stroke-linejoin="round">
   <style>.b{stroke:#222}@media (prefers-color-scheme:dark){.b{stroke:#f5f3f0}}</style>
-  <rect class="b" x="4" y="10" width="36" height="26" rx="3"/>
-  <path class="b" d="M4 13l18 13 18-13"/>
-  <path d="M4 36l13-12M40 36L27 24" stroke="#e61e4d"/>
+  <rect class="b" x="9" y="5" width="26" height="34" rx="3"/>
+  <path class="b" d="M14 20h5M22 20h8M14 26h5M22 26h8M14 32h5M22 32h8"/>
+  <path d="M14 12.5h16" stroke="#e61e4d" stroke-width="3.5"/>
 </svg>
