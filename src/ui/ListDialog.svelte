@@ -9,9 +9,11 @@
    * Escape closes natively; a backdrop click, the X, and Done close it too. Focus returns to
    * whichever control opened it. It sits outside any form, so Enter here never submits.
    */
-  let { dataset, onchange }: {
+  let { dataset, onchange, fallbackFocus }: {
     dataset: Dataset | null;
     onchange: (ds: Dataset | null) => void;
+    /** Where focus goes on close when the opener is gone, such as Edit after Remove. */
+    fallbackFocus?: () => HTMLElement | null | undefined;
   } = $props();
 
   let dialog = $state<HTMLDialogElement>();
@@ -59,7 +61,8 @@
   function onclose() {
     document.documentElement.classList.remove('dialog-open');
     panel?.settle();
-    opener?.focus();
+    if (opener?.isConnected) opener.focus();
+    else fallbackFocus?.()?.focus();
     opener = null;
   }
 

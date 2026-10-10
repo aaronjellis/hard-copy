@@ -6,10 +6,24 @@ import { openPdf } from './preview';
  * image, written into a new window sized with `@page`, and printed from there.
  */
 
-export type PrintPage = { dataUrl: string; widthIn: number; heightIn: number };
+/** One page drawn as an image: an object URL (see revokePrintPages) and its paper size. */
+export type PrintPage = { url: string; widthIn: number; heightIn: number };
 
-export const DEFAULT_PRINT_DPI = 200;
-export const MAX_PRINT_PAGES = 60;
+export const DEFAULT_PRINT_DPI = 150;
+/** Most image area printed at once, in megapixels: 60 pages of 1.5 MP. Letter at 150 DPI is 2.1 MP a page. */
+export const MAX_PRINT_MEGAPIXELS = 60 * 1.5;
+/** How long page images outlive a print screen that never reports closing. */
+export const PRINT_URL_LIFETIME_MS = 60_000;
+
+/** Megapixels of one page `widthPt` × `heightPt` points drawn at `dpi`. */
+export function pageMegapixels(widthPt: number, heightPt: number, dpi = DEFAULT_PRINT_DPI): number {
+  return ((widthPt / 72) * dpi * (heightPt / 72) * dpi) / 1e6;
+}
+
+/** The most pages of this size the image print path draws at `dpi` (at least 1). */
+export function maxImagePrintPages(widthPt: number, heightPt: number, dpi = DEFAULT_PRINT_DPI): number {
+  return Math.max(1, Math.floor(MAX_PRINT_MEGAPIXELS / pageMegapixels(widthPt, heightPt, dpi)));
+}
 
 /** The new window's content while the PDF is built and drawn. */
 export const PRINT_SHELL_HTML =
@@ -17,10 +31,10 @@ export const PRINT_SHELL_HTML =
   + '<style>html,body{margin:0}@page{margin:0} .p{display:block;page-break-after:always;break-after:page} .p:last-child{page-break-after:auto}</style>'
   + '<body><p class="wait" style="font:16px system-ui;padding:16px">Preparing your pages…</p></body>';
 
-/** Thrown when a PDF has more pages than the image print path handles. */
+/** Thrown when a PDF has more page area than the image print path handles (`max` pages of its size). */
 export class PrintTooLongError extends Error {
   constructor(readonly pages: number, readonly max: number) {
-    super(`This PDF has ${pages} pages. Printing from a phone or tablet handles up to ${max} at a time.`);
+    super(`This PDF has ${pages} pages. Printing from a phone or tablet handles up to ${max} pages this size at a time.`);
     this.name = 'PrintTooLongError';
   }
 }
@@ -53,14 +67,26 @@ export function openPrintWindow(): Window | null {
   return win;
 }
 
+/** Revoke the object URLs of drawn pages. */
+export function revokePrintPages(pages: PrintPage[]): void {
+  for (const page of pages) URL.revokeObjectURL(page.url);
+}
+
 /**
  * Replaces the "Preparing" message with one image per page and opens the print screen once every
  * image has loaded. The window stays open afterward: closing it automatically misbehaves on iOS.
- * Never throws, even if the user closed the window.
+ * The page images are revoked after printing (`afterprint`) or after PRINT_URL_LIFETIME_MS,
+ * whichever comes first, or at once if the window is already gone. Never throws.
  */
 export function fillPrintWindow(win: Window, pages: PrintPage[]): void {
+  let revoked = false;
+  const revoke = () => {
+    if (revoked) return;
+    revoked = true;
+    revokePrintPages(pages);
+  };
   try {
-    if (win.closed || pages.length === 0) return;
+    if (win.closed || pages.length === 0) return revoke();
     const doc = win.document;
     const { widthIn, heightIn } = pages[0];
     const style = doc.createElement('style');
@@ -78,44 +104,66 @@ export function fillPrintWindow(win: Window, pages: PrintPage[]): void {
       loads.push(new Promise<void>((resolve) => {
         img.onload = img.onerror = () => resolve();
       }));
-      img.src = page.dataUrl;
+      img.src = page.url;
       doc.body.appendChild(img);
     }
+    setTimeout(revoke, PRINT_URL_LIFETIME_MS);
 
     void Promise.all(loads).then(() => {
       try {
-        if (win.closed) return;
+        if (win.closed) return revoke();
+        win.addEventListener('afterprint', revoke, { once: true });
         win.focus();
         win.print();
       } catch {
         // The window went away between loading and printing.
+        revoke();
       }
     });
   } catch {
     // The user closed the window, or the browser revoked access to it.
+    revoke();
   }
 }
 
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('This browser could not draw the page as an image.'))), 'image/png');
+  });
+}
+
 /**
- * Draws every page of a PDF to a PNG data URL at `dpi`. Throws `PrintTooLongError` before
- * drawing anything when the PDF has more than `maxPages` pages.
+ * Draws every page of a PDF to a PNG object URL at `dpi`. Throws `PrintTooLongError` before
+ * drawing anything when the pages' total area at `dpi` is over `maxMegapixels`. The caller owns
+ * the URLs (fillPrintWindow revokes them; otherwise call revokePrintPages).
  */
-export async function renderPdfPagesToDataUrls(
+export async function renderPdfPagesToImages(
   bytes: Uint8Array,
-  opts: { dpi?: number; maxPages?: number } = {},
+  opts: { dpi?: number; maxMegapixels?: number } = {},
 ): Promise<PrintPage[]> {
   const dpi = opts.dpi ?? DEFAULT_PRINT_DPI;
-  const maxPages = opts.maxPages ?? MAX_PRINT_PAGES;
+  const maxMegapixels = opts.maxMegapixels ?? MAX_PRINT_MEGAPIXELS;
   const pdf = await openPdf(bytes);
+  const pages: PrintPage[] = [];
   try {
-    if (pdf.numPages > maxPages) throw new PrintTooLongError(pdf.numPages, maxPages);
-    const pages: PrintPage[] = [];
+    const sizes = await pdf.pageSizes();
+    const total = sizes.reduce((sum, s) => sum + pageMegapixels(s.widthPt, s.heightPt, dpi), 0);
+    if (total > maxMegapixels) {
+      const first = sizes[0];
+      throw new PrintTooLongError(pdf.numPages, Math.max(1, Math.floor(maxMegapixels / pageMegapixels(first.widthPt, first.heightPt, dpi))));
+    }
     for (let n = 1; n <= pdf.numPages; n++) {
       const { canvas, widthPt, heightPt } = await pdf.renderPage(n, dpi / 72);
-      pages.push({ dataUrl: canvas.toDataURL('image/png'), widthIn: widthPt / 72, heightIn: heightPt / 72 });
-      canvas.width = canvas.height = 0;
+      try {
+        pages.push({ url: URL.createObjectURL(await canvasToBlob(canvas)), widthIn: widthPt / 72, heightIn: heightPt / 72 });
+      } finally {
+        canvas.width = canvas.height = 0;
+      }
     }
     return pages;
+  } catch (err) {
+    revokePrintPages(pages);
+    throw err;
   } finally {
     await pdf.destroy();
   }

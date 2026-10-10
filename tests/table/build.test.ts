@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream, StandardFonts, decodePDFRawStream } from 'pdf-lib';
-import { buildTablePdf, hexToRgb, type BuildInput } from '../../src/lib/table/build';
+import { buildTablePdf, drawPages, hexToRgb, prepareTable, type BuildInput } from '../../src/lib/table/build';
 import { layoutTable, LINE_HEIGHT, PADDING_PT } from '../../src/lib/table/layout';
 import { defaultSetup, reconcileColumns, type Setup } from '../../src/lib/setup/setup';
 import { resolvePaper } from '../../src/lib/setup/paper';
@@ -261,14 +261,31 @@ describe('buildTablePdf: style', () => {
     expect(count(ops, /0 1 0 rg/g)).toBe(Math.floor(ROWS.length / 2));
   });
 
-  it('fills and bolds the lead column, header included', async () => {
+  it('fills the lead column on data rows only, and bolds it', async () => {
     const { doc } = await build(input((s) => {
       s.style.header.bold = false;
       s.style.leadColumn = { bold: true, fill: '#0000ff' };
     }));
     const ops = content(doc, 0);
-    expect(count(ops, FILL)).toBe(ROWS.length + 1);
+    expect(count(ops, FILL)).toBe(ROWS.length);
     expect(baseFonts(doc)).toEqual(['/Helvetica', '/Helvetica-Bold']);
+  });
+
+  it('gives the header cell of the lead column the header fill, not the lead fill', async () => {
+    const { doc, pdf } = await build(input((s) => {
+      s.style.header.fill = '#ff0000';
+      s.style.header.color = '#ffffff';
+      s.style.leadColumn = { bold: false, fill: '#00ff00' };
+    }));
+    const fills = [...content(doc, 0).matchAll(/([\d.]+ [\d.]+ [\d.]+) rg\s+(-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+) re\s+f\b/g)]
+      .map((m) => ({ color: m[1], y: Number(m[3]), h: Number(m[5]) }));
+    const header = fills.filter((f) => f.color === '1 0 0');
+    const lead = fills.filter((f) => f.color === '0 1 0');
+    expect(header).toHaveLength(1);
+    expect(lead).toHaveLength(ROWS.length);
+    // No lead fill reaches into the header row.
+    for (const f of lead) expect(f.y + f.h).toBeLessThanOrEqual(header[0].y + 1e-6);
+    expect(pdf.pageCount).toBe(1);
   });
 
   it('fills the lead column by id, not on a band that starts without it', async () => {
@@ -282,7 +299,7 @@ describe('buildTablePdf: style', () => {
     }, [['1', '2', '3']]));
     expect(pdf.pageCount).toBe(3);
     const lead = /0 0 1 rg\s+[\d. -]+ re\s+f\b/g;
-    expect(count(content(doc, 0), lead)).toBe(2); // header row + one data row
+    expect(count(content(doc, 0), lead)).toBe(1); // the one data row; the header row keeps the header fill
     expect(count(content(doc, 1), lead)).toBe(0);
     expect(count(content(doc, 2), lead)).toBe(0);
   });
@@ -312,5 +329,57 @@ describe('buildTablePdf: style', () => {
       s.page.gridlines = false;
     }));
     expect(count(content(off.doc, 0), STROKE)).toBe(0);
+  });
+});
+
+describe('prepareTable and drawPages', () => {
+  const many = Array.from({ length: 150 }, (_, i) => [`Person ${i}`, String(i * 7), 'Some note text']);
+
+  it('reports the page count from the layout without drawing', async () => {
+    const prepared = await prepareTable(input(undefined, many), noFonts);
+    const full = await buildTablePdf(input(undefined, many), noFonts);
+    expect(prepared.pageCount).toBeGreaterThan(1);
+    expect(prepared.pageCount).toBe(full.pageCount);
+    expect(prepared.pages).toEqual(full.pages);
+    expect(prepared.pagesTall * prepared.bandCount).toBe(prepared.pageCount);
+  });
+
+  it('draws only the requested pages, in order, into a new document', async () => {
+    const prepared = await prepareTable(input((s) => {
+      s.hf.footer = [NONE, { kind: 'pageOf' }, NONE];
+    }, many), noFonts);
+    const n = prepared.pageCount;
+    const one = await drawPages(prepared, [1]);
+    const doc = await PDFDocument.load(one.bytes);
+    expect(doc.getPageCount()).toBe(1);
+    expect(one.pageCount).toBe(n);
+    expect(one.drawnPages).toEqual([1]);
+    expect(texts(content(doc, 0)).map((t) => t.text)).toContain(`Page 2 of ${n}`);
+
+    const two = await drawPages(prepared, [n - 1, 0, 99]);
+    expect((await PDFDocument.load(two.bytes)).getPageCount()).toBe(2);
+    expect(two.drawnPages).toEqual([n - 1, 0]);
+
+    const all = await drawPages(prepared, 'all');
+    expect((await PDFDocument.load(all.bytes)).getPageCount()).toBe(n);
+    expect(all.drawnPages).toEqual(Array.from({ length: n }, (_, i) => i));
+  });
+
+  it('draws a page the same from one prepared table as in the whole document', async () => {
+    const prepared = await prepareTable(input(undefined, many), noFonts);
+    const all = await PDFDocument.load((await drawPages(prepared, 'all')).bytes);
+    const one = await PDFDocument.load((await drawPages(prepared, [2])).bytes);
+    // Font resource names carry a random suffix per document.
+    const plain = (ops: string) => ops.replace(/(\/[A-Za-z-]+)-\d+\b/g, '$1');
+    expect(plain(content(one, 0))).toBe(plain(content(all, 2)));
+  });
+
+  it('reports replaced characters for every page when preparing, before any page is drawn', async () => {
+    const rows = [...many];
+    rows[140] = ['Zoë ✓', '1', 'x'];
+    const prepared = await prepareTable(input(undefined, rows), noFonts);
+    expect(prepared.warnings).toHaveLength(1);
+    expect(prepared.warnings[0].replaced).toEqual(['✓']);
+    expect(prepared.warnings[0].page).toBe(prepared.pageCount);
   });
 });

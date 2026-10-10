@@ -30,11 +30,14 @@
     return `${s.label} · ${dims}`;
   }
 
+  /** Apply a patch to the page setup; a patch that changes nothing (by value) is dropped. */
   function set(patch: Partial<PageSetup>) {
-    onchange({ ...setup, page: { ...setup.page, ...patch } });
+    const next = { ...setup.page, ...patch };
+    if (JSON.stringify(next) === JSON.stringify(setup.page)) return;
+    onchange({ ...setup, page: next });
   }
 
-  // --- Custom paper: entry unit only; the setup always stores inches. ---
+  // --- Entry unit for custom paper and custom margins; the setup always stores inches. ---
   let unit = $state<'in' | 'mm'>('in');
   const toDisplay = (inches: number) =>
     unit === 'mm' ? Math.round(inches * MM_PER_IN * 10) / 10 : Math.round(inches * 1000) / 1000;
@@ -85,11 +88,20 @@
     return Math.min(max, Math.max(min, v));
   }
 
+  /** A margin as shown: inches to 0.01, or millimetres to 0.1. */
+  const marginDisplay = (inches: number) =>
+    unit === 'mm' ? Math.round(inches * MM_PER_IN * 10) / 10 : Math.round(inches * 100) / 100;
+
   function onMargin(side: keyof Margins, e: Event) {
     const input = e.currentTarget as HTMLInputElement;
     const raw = input.valueAsNumber;
-    const next = Number.isFinite(raw) ? Math.round(clamp(raw, SETUP_LIMITS.marginIn) * 100) / 100 : page.margins[side];
-    input.value = String(next);
+    // Inches round to 0.01; millimetres keep 4 decimals of inches so the entry reads back unchanged.
+    const next = Number.isFinite(raw)
+      ? unit === 'mm'
+        ? Math.round(clamp(raw / MM_PER_IN, SETUP_LIMITS.marginIn) * 10000) / 10000
+        : Math.round(clamp(raw, SETUP_LIMITS.marginIn) * 100) / 100
+      : page.margins[side];
+    input.value = String(marginDisplay(next));
     set({ margins: { ...page.margins, [side]: next } });
   }
 
@@ -133,6 +145,13 @@
   }
 </script>
 
+{#snippet unitToggle(label: string)}
+  <div class="segmented units" role="group" aria-label={label}>
+    <button type="button" aria-pressed={unit === 'in'} onclick={() => (unit = 'in')}>in</button>
+    <button type="button" aria-pressed={unit === 'mm'} onclick={() => (unit = 'mm')}>mm</button>
+  </div>
+{/snippet}
+
 <SetupCard title="Page" icon={FileText} summary={pageSummary(setup)} rise={3}>
 
   <div class="field paper">
@@ -158,10 +177,7 @@
           value={toDisplay(page.customHeightIn)} aria-describedby="{id}-paper-hint"
           onchange={(e) => onPaperSide('customHeightIn', e)} />
       </div>
-      <div class="segmented units" role="group" aria-label="Units">
-        <button type="button" aria-pressed={unit === 'in'} onclick={() => (unit = 'in')}>in</button>
-        <button type="button" aria-pressed={unit === 'mm'} onclick={() => (unit = 'mm')}>mm</button>
-      </div>
+      {@render unitToggle('Paper units')}
       <p id="{id}-paper-hint" class="muted hint"><Ruler size={16} aria-hidden="true" />Each side {paperHint}, before turning.</p>
     </div>
   {/if}
@@ -189,12 +205,14 @@
       <div class="sides">
         {#each SIDES as side (side.key)}
           <div class="field">
-            <label for="{id}-m-{side.key}">{side.label} (in)</label>
-            <input id="{id}-m-{side.key}" type="number" inputmode="decimal" step="0.05"
-              min={SETUP_LIMITS.marginIn[0]} max={SETUP_LIMITS.marginIn[1]} value={page.margins[side.key]}
+            <label for="{id}-m-{side.key}">{side.label} ({unit})</label>
+            <input id="{id}-m-{side.key}" type="number" inputmode="decimal" step={unit === 'mm' ? 1 : 0.05}
+              min={marginDisplay(SETUP_LIMITS.marginIn[0])} max={marginDisplay(SETUP_LIMITS.marginIn[1])}
+              value={marginDisplay(page.margins[side.key])}
               onchange={(e) => onMargin(side.key, e)} />
           </div>
         {/each}
+        <div class="margin-units">{@render unitToggle('Margin units')}</div>
       </div>
     {/if}
   </div>
@@ -261,6 +279,7 @@
 
   .sides { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 4px; }
   .sides input { padding: 12px 10px; }
+  .margin-units { grid-column: 1 / -1; justify-self: start; }
 
   .range { font-size: 14px; }
 

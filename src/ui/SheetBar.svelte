@@ -131,7 +131,7 @@
   {/if}
 </section>
 
-<ListDialog bind:this={listDialog} {dataset} {onchange} />
+<ListDialog bind:this={listDialog} {dataset} {onchange} fallbackFocus={() => loadButton} />
 
 <style>
   .sheet-bar {
