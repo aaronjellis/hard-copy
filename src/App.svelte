@@ -52,12 +52,12 @@
 <main>
   <header class="masthead rise" style="--i: 0">
     <div class="brand">
-      <!-- Placeholder monogram: a printed sheet with a coral header row. -->
+      <!-- Monogram: a landscape sheet with a coral header row and a two-by-two grid, on Letter Rip's envelope footprint. -->
       <svg class="monogram" viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="2"
         stroke-linejoin="round" aria-hidden="true">
-        <rect x="9" y="5" width="26" height="34" rx="3" />
-        <path class="accent" d="M14 12.5h16" />
-        <path d="M14 20h5M22 20h8M14 26h5M22 26h8M14 32h5M22 32h8" />
+        <rect x="4" y="10" width="36" height="26" rx="3" />
+        <path class="accent" d="M5 17.5h34" />
+        <path d="M16 19v16M28 19v16M5 26.75h34" />
       </svg>
       <div class="brand-text">
         <h1>Hard Copy</h1>
