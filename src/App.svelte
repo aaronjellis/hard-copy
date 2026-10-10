@@ -17,6 +17,7 @@
   import Coffee from '@lucide/svelte/icons/coffee';
   import Mail from '@lucide/svelte/icons/mail';
   import ArrowRight from '@lucide/svelte/icons/arrow-right';
+  import ArrowUpRight from '@lucide/svelte/icons/arrow-up-right';
   import Info from '@lucide/svelte/icons/info';
 
   let profile = $state<Profile>(loadProfile());
@@ -86,7 +87,7 @@
     </div>
   </section>
 
-  <!-- One row, evenly spaced: the sibling-tool card, About, Support. Shared .promo-card styles live in app.css. -->
+  <!-- Three matching cards: the sibling tool, then quieter About and Support. Shared .promo-card styles live in app.css. -->
   <footer class="footnote">
     <a class="promo-card" href="https://labs.aaronjellis.com/letter-rip/">
       <span class="promo-icon"><Mail size={18} aria-hidden="true" /></span>
@@ -96,10 +97,15 @@
       </span>
       <ArrowRight size={18} aria-hidden="true" class="promo-arrow" />
     </a>
-    <button type="button" class="text-link" onclick={openAbout}>About Hard Copy</button>
-    <a class="coffee" href="https://buymeacoffee.com/madebyaaron" target="_blank" rel="noopener">
-      <Coffee size={18} aria-hidden="true" />
-      Support my experiments
+    <button type="button" class="promo-card quiet" onclick={openAbout}>
+      <span class="promo-icon"><Info size={18} aria-hidden="true" /></span>
+      <span class="promo-text"><span class="promo-title">About Hard Copy</span></span>
+      <ArrowRight size={18} aria-hidden="true" class="promo-arrow" />
+    </button>
+    <a class="promo-card quiet" href="https://buymeacoffee.com/madebyaaron" target="_blank" rel="noopener">
+      <span class="promo-icon coral"><Coffee size={18} aria-hidden="true" /></span>
+      <span class="promo-text"><span class="promo-title">Support my experiments</span></span>
+      <ArrowUpRight size={18} aria-hidden="true" class="promo-arrow" />
     </a>
   </footer>
 
@@ -152,53 +158,18 @@
     .settings { grid-column: 1; grid-row: 1; --pad: 24px; }
   }
 
+  /* Three equal cards from tablet widths up; they stack on phones. Card styles are shared in app.css. */
   .footnote {
     margin-top: 48px;
     padding-top: 24px;
     border-top: 1px solid var(--divider);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px 24px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
   }
-  /* The card leads the row and gives way first; on phones it takes its own row with the links spread below. */
-  .footnote :global(.promo-card) { flex: 0 1 520px; width: auto; }
   @media (max-width: 759px) {
-    .footnote { column-gap: 16px; }
-    .footnote :global(.promo-card) { flex-basis: 100%; max-width: none; }
+    .footnote { grid-template-columns: minmax(0, 1fr); }
   }
-  /* Support link: quiet outlined pill in the app's own system, no third-party script. */
-  .coffee {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 40px;
-    padding: 0 16px;
-    border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
-    border-radius: 999px;
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 500;
-    text-decoration: none;
-    transition: background 120ms ease, border-color 120ms ease;
-  }
-  .coffee:hover { background: var(--subtle); }
-  .coffee:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-  .coffee :global(.lucide) { color: var(--coral-icon); }
-  /* Opens the About dialog: a plain text link, not another pill. */
-  .text-link {
-    min-height: 40px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: none;
-    color: var(--muted);
-    font-size: 14px;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-  .text-link:hover:not(:disabled) { background: none; color: var(--text); }
 
   @media (max-width: 759px) {
     .masthead { margin-bottom: 24px; }
