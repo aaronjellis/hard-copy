@@ -225,7 +225,7 @@
       {/each}
     </div>
     {#if page.scale.mode === 'fitWidth'}
-      <p class="muted hint">Shrinks the columns to fit across one page, never enlarges.</p>
+      <p class="muted hint">Spans the page width: wide tables shrink to fit, narrow ones widen their columns.</p>
     {:else if page.scale.mode === 'fitPages'}
       <div class="inline-fields">
         <input id="{id}-wide" class="small" type="number" inputmode="numeric" step="1"

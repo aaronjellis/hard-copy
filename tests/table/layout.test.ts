@@ -51,10 +51,31 @@ describe('layoutTable: scale', () => {
     expect(page.rows[0].cells[0].lines).toEqual([repeat('a', 30)]);
   });
 
-  it('fitWidth never enlarges a narrow table', () => {
+  it('fitWidth widens a narrow table to the printable width without enlarging the text', () => {
     const layout = layoutTable(input(columns(['Name']), [['Ann']]));
     expect(layout.scale).toBe(1);
-    expect(layout.pages[0].columns[0].width).toBe(34); // bold "Name" 24 + 2 × 5
+    expect(layout.pages[0].columns[0].width).toBeCloseTo(504, 6);
+  });
+
+  it('fitWidth shares the slack among auto columns in proportion and leaves fixed ones alone', () => {
+    const cols = columns(['Name', 'Note', 'Fixed']);
+    const layout = layoutTable(input(cols, [['Ann', 'Ann is here', 'x']], (s) => {
+      s.columns.byId.c2.width = { mode: 'fixed', inches: 1 };
+    }));
+    const [a, b, c] = layout.pages[0].columns.map((col) => col.width);
+    expect(c).toBe(72);
+    expect(a + b + c).toBeCloseTo(504, 6);
+    // Natural widths: "Name" bold 24 + 10 = 34; "Ann is here" 55 + 10 = 65. The ratio survives the stretch.
+    expect(a / b).toBeCloseTo(34 / 65, 6);
+  });
+
+  it('fitWidth leaves an all-fixed table at its fixed widths', () => {
+    const cols = columns(['A', 'B']);
+    const layout = layoutTable(input(cols, [['x', 'y']], (s) => {
+      s.columns.byId.c0.width = { mode: 'fixed', inches: 1 };
+      s.columns.byId.c1.width = { mode: 'fixed', inches: 2 };
+    }));
+    expect(layout.pages[0].columns.map((c) => c.width)).toEqual([72, 144]);
   });
 
   it('fitPages 1 × 1 takes the width limit when the table is wide', () => {
@@ -222,7 +243,10 @@ describe('layoutTable: scale', () => {
 
 describe('layoutTable: widths and alignment', () => {
   it('caps an auto width at 40% of the printable width', () => {
-    const layout = layoutTable(input(columns(['Notes', 'ID']), [[repeat('a', 200), '7']]));
+    // At 100% so fit to width's stretching stays out of the measurement.
+    const layout = layoutTable(input(columns(['Notes', 'ID']), [[repeat('a', 200), '7']], (s) => {
+      s.page.scale = { mode: 'percent', value: 100 };
+    }));
     expect(layout.scale).toBe(1);
     expect(layout.pages[0].columns.map((c) => c.width)).toEqual([expect.closeTo(201.6, 9), 22]); // bold "ID" 12 + 10
     expect(layout.pages[0].columns.map((c) => c.x)).toEqual([54, expect.closeTo(255.6, 9)]);
@@ -264,6 +288,7 @@ describe('layoutTable: rows', () => {
     // "12 Elm St Springfield" is 21 characters: 105 + 2 × 5 = 115 pt.
     const page = layoutTable(input(columns(['Address']), [['12 Elm St\nSpringfield']], (s) => {
       s.columns.byId.c0.wrap = false;
+      s.page.scale = { mode: 'percent', value: 100 };
     })).pages[0];
     expect(page.columns[0].width).toBe(115);
     expect(page.rows[0].cells[0].lines).toEqual(['12 Elm St Springfield']);

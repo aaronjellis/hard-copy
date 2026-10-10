@@ -146,6 +146,16 @@ export function layoutTable(input: LayoutInput): PrintLayout {
     for (let p = 0; p < positions.length; p++) widest = Math.max(widest, widthOf(text(c, p), cellBold(c)));
     return Math.min(widest + 2 * basePad, AUTO_WIDTH_CAP * printable.width);
   });
+  // Fit to width spans the printable width: a narrow table widens its auto columns in proportion
+  // (fixed columns keep their width and the text keeps its size); a wide one shrinks below.
+  if (pageSetup.scale.mode === 'fitWidth') {
+    const sum = natural.reduce((a, b) => a + b, 0);
+    const autoSum = cols.reduce((a, c, i) => a + (c.setup.width.mode === 'auto' ? natural[i] : 0), 0);
+    const slack = printable.width - sum;
+    if (slack > EPS && autoSum > 0) {
+      cols.forEach((c, i) => { if (c.setup.width.mode === 'auto') natural[i] += (slack * natural[i]) / autoSum; });
+    }
+  }
   const naturalSum = natural.reduce((a, b) => a + b, 0);
   /** Column widths at a scale, never wider than the printable area (percent scales go up to 200). */
   const widthsAt = (scale: number) => natural.map((w) => Math.min(w * scale, printable.width));
