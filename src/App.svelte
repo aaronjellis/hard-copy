@@ -108,6 +108,10 @@
       <ArrowUpRight size={18} aria-hidden="true" class="promo-arrow" />
     </a>
   </footer>
+  <!-- Colophon: one line in the text color, with the way back to the rest of the site. -->
+  <p class="colophon">
+    Made by <a href="https://aaronjellis.com">Aaron Ellis</a> · aaronjellis.com
+  </p>
 
   <AboutDialog bind:this={about} />
 </main>
@@ -170,6 +174,17 @@
   @media (max-width: 759px) {
     .footnote { grid-template-columns: minmax(0, 1fr); }
   }
+  .colophon {
+    margin: 24px 0 0;
+    padding-bottom: 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    text-align: center;
+  }
+  .colophon a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--text) 40%, transparent); }
+  .colophon a:hover { text-decoration-color: var(--text); }
+  .colophon a:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; border-radius: 2px; }
 
   @media (max-width: 759px) {
     .masthead { margin-bottom: 24px; }
