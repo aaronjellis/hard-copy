@@ -10,6 +10,7 @@
   import {
     PrintTooLongError, fillPrintWindow, maxImagePrintPages, openPrintWindow, renderPdfPagesToImages,
   } from '../lib/pdf/print-window';
+  import { reportExport } from '../lib/labs';
   import {
     POPUP_BLOCKED, closeQuietly, downloadPdf, openPdfTab, pdfBlobUrl, pdfFileName, sharePdf, showPdfInTab, sourceStem,
   } from '../lib/export';
@@ -257,6 +258,7 @@
     error = '';
     try {
       downloadPdf((await wholePdf()).bytes, name);
+      reportExport();
     } catch (err) {
       error = errorMessage(err);
     } finally {
@@ -325,6 +327,7 @@
     } finally {
       if (win && !filled) closeQuietly(win);
       exporting = null;
+      if (!error) reportExport();
     }
   }
 
